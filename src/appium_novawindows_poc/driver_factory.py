@@ -11,6 +11,9 @@ def create_windows_driver(settings: Settings) -> webdriver.Remote:
         "appium:app": settings.windows_app_path,
     }
 
+    if settings.windows_app_working_dir:
+        capabilities["appium:appWorkingDir"] = settings.windows_app_working_dir
+
     options = AppiumOptions()
     options.load_capabilities(capabilities)
 
