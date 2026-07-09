@@ -10,6 +10,7 @@ class Settings:
     appium_server_url: str
     windows_app_path: str
     windows_app_working_dir: str | None
+    windows_app_process_name: str | None
 
 
 def load_settings() -> Settings:
@@ -18,6 +19,7 @@ def load_settings() -> Settings:
     appium_server_url = os.getenv("APPIUM_SERVER_URL", "http://127.0.0.1:4723")
     windows_app_path = os.getenv("WINDOWS_APP_PATH", "").strip()
     windows_app_working_dir = os.getenv("WINDOWS_APP_WORKING_DIR", "").strip() or None
+    windows_app_process_name = os.getenv("WINDOWS_APP_PROCESS_NAME", "").strip() or None
 
     if not windows_app_path:
         raise RuntimeError(
@@ -32,4 +34,5 @@ def load_settings() -> Settings:
         appium_server_url=appium_server_url,
         windows_app_path=windows_app_path,
         windows_app_working_dir=windows_app_working_dir,
+        windows_app_process_name=windows_app_process_name,
     )
