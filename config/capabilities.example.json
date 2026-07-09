@@ -1,0 +1,5 @@
+{
+  "platformName": "Windows",
+  "appium:automationName": "NovaWindows",
+  "appium:app": "C:\\Path\\To\\TestApp.exe"
+}
