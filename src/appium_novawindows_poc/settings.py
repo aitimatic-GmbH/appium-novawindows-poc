@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PureWindowsPath
 
 from dotenv import load_dotenv
 
@@ -16,7 +16,7 @@ class Settings:
 def load_settings() -> Settings:
     load_dotenv()
 
-    appium_server_url = os.getenv("APPIUM_SERVER_URL", "http://127.0.0.1:4723")
+    appium_server_url = os.getenv("APPIUM_SERVER_URL", "http://127.0.0.1:4723").strip()
     windows_app_path = os.getenv("WINDOWS_APP_PATH", "").strip()
     windows_app_working_dir = os.getenv("WINDOWS_APP_WORKING_DIR", "").strip() or None
     windows_app_process_name = os.getenv("WINDOWS_APP_PROCESS_NAME", "").strip() or None
@@ -27,8 +27,11 @@ def load_settings() -> Settings:
             "Bitte .env aus .env.example erstellen und den Pfad zur Testapplikation eintragen."
         )
 
-    if windows_app_working_dir is None and ":\\" in windows_app_path:
-        windows_app_working_dir = str(Path(windows_app_path).parent)
+    if windows_app_working_dir is None and _is_windows_exe_path(windows_app_path):
+        windows_app_working_dir = str(PureWindowsPath(windows_app_path).parent)
+
+    if windows_app_process_name is None and _is_windows_exe_path(windows_app_path):
+        windows_app_process_name = PureWindowsPath(windows_app_path).name
 
     return Settings(
         appium_server_url=appium_server_url,
@@ -36,3 +39,7 @@ def load_settings() -> Settings:
         windows_app_working_dir=windows_app_working_dir,
         windows_app_process_name=windows_app_process_name,
     )
+
+
+def _is_windows_exe_path(value: str) -> bool:
+    return ":\\" in value and value.lower().endswith(".exe")
