@@ -5,7 +5,7 @@ import time
 from appium_novawindows_poc.settings import Settings
 
 
-def wait_for_main_window_handle(settings: Settings) -> int:
+def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
     if not settings.windows_app_process_name:
         raise RuntimeError(
             "WINDOWS_APP_PROCESS_NAME ist nicht gesetzt. "
@@ -27,6 +27,12 @@ def wait_for_main_window_handle(settings: Settings) -> int:
         last_seen = "\n".join(str(candidate) for candidate in candidates)
 
         for candidate in candidates:
+            # Nur die selbst gestartete Prozess-Instanz akzeptieren - sonst
+            # kann bei einer verwaisten Altinstanz mit passendem Fenstertitel
+            # das falsche (nicht sichtbare) Fenster attached werden.
+            if int(candidate.get("Id", "0")) != process_id:
+                continue
+
             title = candidate.get("MainWindowTitle", "").strip()
             handle = int(candidate.get("MainWindowHandle", "0"))
 
@@ -49,6 +55,7 @@ def wait_for_main_window_handle(settings: Settings) -> int:
     raise TimeoutError(
         "Kein gültiges ERP.Client-Hauptfenster gefunden. "
         f"ProcessName: {settings.windows_app_process_name!r}. "
+        f"Erwartete Prozess-ID: {process_id}. "
         f"Erwarteter Fenstertitel: {settings.windows_app_title!r}. "
         f"Letzte Kandidaten:\n{last_seen}"
     )

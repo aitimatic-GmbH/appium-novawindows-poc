@@ -15,9 +15,9 @@ def test_dump_ui_tree_for_locator_discovery():
     settings = load_settings()
 
     try:
-        start_windows_app(settings)
+        app_process = start_windows_app(settings)
 
-        main_window_handle = wait_for_main_window_handle(settings)
+        main_window_handle = wait_for_main_window_handle(settings, app_process.pid)
 
         driver = attach_to_window_driver(
             settings=settings,
