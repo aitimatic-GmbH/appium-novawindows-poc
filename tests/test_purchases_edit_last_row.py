@@ -248,3 +248,192 @@ def _jump_to_last_page(driver) -> None:
             f"{TARGET_ROW_AUTOMATION_ID} waere nicht mehr der Discovery-Datensatz.",
         )
     _log_phase("Sprung auf letzte Seite")
+
+
+def _find_target_row(driver):
+    # Pollt bis zum eindeutigen Treffer; das ersetzt nach einem OK-Speichern
+    # das pauschale ready-Warten auf den Grid-Refresh.
+    found = {"row": None, "hits": 0}
+
+    def exactly_one_row_found() -> bool:
+        try:
+            grid = driver.find_element("accessibility id", "gridView")
+            target_rows = grid.find_elements("xpath", TARGET_ROW_XPATH)
+        except Exception:
+            return False
+        found["hits"] = len(target_rows)
+        if len(target_rows) == 1:
+            found["row"] = target_rows[0]
+            return True
+        return False
+
+    try:
+        wait_until_true(exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout")
+    except AssertionError:
+        _fail_with_dump(
+            driver,
+            "erp_purchases_target_row_missing",
+            f"Zielzeile ({ROW_LABEL}) nicht eindeutig gefunden "
+            f"(zuletzt {found['hits']} Treffer) - weniger Zeilen auf der "
+            "letzten Seite oder geaenderte Daten?",
+        )
+    return found["row"]
+
+
+def _select_target_row(driver, target_row) -> None:
+    # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
+    # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
+    inner_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
+    driver.execute_script("windows: select", inner_item)
+
+
+def _read_text_best_effort(element) -> str | None:
+    try:
+        value = element.text
+        if value:
+            return value
+    except Exception:
+        pass
+    try:
+        return element.get_attribute("Name")
+    except Exception:
+        return None
+
+
+def _verify_order_details(driver) -> None:
+    # Der Order-Details-Bereich erscheint erst nach der Zeilenselektion; der
+    # Nachweis zaehlt die Detail-Zeilen im Teilbaum der Zielzeile. Bleibt er
+    # leer, wird genau einmal frisch gesucht und erneut selektiert.
+    found = {"count": 0}
+
+    def details_complete() -> bool:
+        try:
+            grid = driver.find_element("accessibility id", "gridView")
+            target_rows = grid.find_elements("xpath", TARGET_ROW_XPATH)
+            if len(target_rows) != 1:
+                return False
+            detail_rows = target_rows[0].find_elements(
+                "xpath", ORDER_DETAILS_ROW_XPATH
+            )
+        except Exception:
+            return False
+        found["count"] = len(detail_rows)
+        return len(detail_rows) == EXPECTED_ORDER_DETAILS_COUNT
+
+    for attempt in (1, 2):
+        try:
+            wait_until_true(
+                details_complete, ORDER_DETAILS_TIMEOUT_SECONDS, "timeout"
+            )
+            break
+        except AssertionError:
+            if attempt == 1:
+                print(
+                    "Order-Details-Nachweis ohne Treffer "
+                    f"(zuletzt {found['count']}), Selektions-Retry."
+                )
+                _select_target_row(driver, _find_target_row(driver))
+            else:
+                _fail_with_dump(
+                    driver,
+                    "erp_purchases_order_details_mismatch",
+                    f"Order-Details-Bereich der Zielzeile ({ROW_LABEL}) zeigt "
+                    f"auch nach Selektions-Retry nicht genau "
+                    f"{EXPECTED_ORDER_DETAILS_COUNT} Positionen "
+                    f"(zuletzt {found['count']}).",
+                )
+
+    try:
+        target_row = driver.find_element(
+            "accessibility id", "gridView"
+        ).find_element("xpath", TARGET_ROW_XPATH)
+        name_texts = target_row.find_elements(
+            "xpath",
+            ORDER_DETAILS_ROW_XPATH
+            + "//Custom[contains(@Name, 'Column Display Index: 0')]/Text",
+        )
+        article_names = [_read_text_best_effort(text) for text in name_texts]
+        print(
+            f"Order Details verifiziert: {found['count']} Positionen, "
+            f"Artikel: {article_names}"
+        )
+    except Exception as error:
+        print(f"Order-Details-Artikelnamen nicht lesbar (nur Protokoll): {error}")
+
+
+def _wait_edit_button_enabled(driver):
+    # Enabled-Poll auf dem einmal gefundenen Button (billig); erst bei Timeout
+    # eine frische Suche als Absicherung gegen ein neu erzeugtes Element.
+    edit_buttons = driver.find_elements("accessibility id", "Edit")
+    if not edit_buttons:
+        _fail_with_dump(
+            driver,
+            "erp_purchases_edit_missing",
+            "Edit-Button in der Purchases-Ansicht nicht gefunden.",
+        )
+    edit_button = edit_buttons[0]
+
+    def edit_enabled() -> bool:
+        try:
+            return edit_button.is_enabled()
+        except Exception:
+            return False
+
+    try:
+        wait_until_true(edit_enabled, EDIT_ENABLED_TIMEOUT_SECONDS, "timeout")
+        return edit_button
+    except AssertionError:
+        pass
+
+    edit_button = driver.find_element("accessibility id", "Edit")
+    if not edit_button.is_enabled():
+        _fail_with_dump(
+            driver,
+            "erp_purchases_edit_disabled",
+            "Edit-Button wurde nach Selektion der Zielzeile nicht enabled.",
+        )
+    return edit_button
+
+
+def _open_edit_dialog_for_target_row(
+    driver, phase_label: str = "Oeffnen", verify_order_details: bool = False
+):
+    # Zeile wird bei jedem Oeffnen frisch gesucht und pattern-basiert selektiert;
+    # die GridViewRow selbst unterstuetzt kein SelectionItemPattern, ihr
+    # inneres Data-Item schon.
+    target_row = _find_target_row(driver)
+    _log_phase(f"{phase_label}: Zielzeile finden")
+    _select_target_row(driver, target_row)
+    if verify_order_details:
+        _verify_order_details(driver)
+        _log_phase(f"{phase_label}: Order-Details-Nachweis")
+    edit_button = _wait_edit_button_enabled(driver)
+    _log_phase(f"{phase_label}: Zeilenselektion + Edit enabled")
+
+    found_dialog = {"element": None}
+
+    def dialog_present() -> bool:
+        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
+        if dialogs:
+            found_dialog["element"] = dialogs[0]
+            return True
+        return False
+
+    for attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
+        if attempt > 1:
+            edit_button = driver.find_element("accessibility id", "Edit")
+        driver.execute_script("windows: invoke", edit_button)
+        try:
+            wait_until_true(dialog_present, DIALOG_OPEN_TIMEOUT_SECONDS, "timeout")
+            _log_phase(f"{phase_label}: Edit-Dialog offen")
+            return found_dialog["element"]
+        except AssertionError:
+            if attempt < CLICK_RETRY_ATTEMPTS:
+                print(f"Edit-Invoke {attempt} ohne sichtbaren Dialog, Retry.")
+
+    _fail_with_dump(
+        driver,
+        "erp_purchases_edit_dialog_failure",
+        f"Edit-Purchase-Order-Dialog nach {CLICK_RETRY_ATTEMPTS} "
+        "Invoke-Versuchen nicht geoeffnet.",
+    )
