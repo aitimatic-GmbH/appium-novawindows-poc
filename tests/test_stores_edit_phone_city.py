@@ -438,3 +438,187 @@ def _close_dialog_best_effort(driver) -> None:
             ActionChains(driver).send_keys(Keys.ESCAPE).perform()
         except Exception:
             pass
+
+
+def _restore_once_best_effort(driver, settings, old_values: dict) -> None:
+    # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
+    # Wiederherstellungsversuch, keine Retries.
+    print(
+        f"\nWARNUNG: Datensatz {TARGET_ACCOUNT_NUMBER} ({TARGET_COMPANY_NAME}) "
+        "wurde geaendert und die Wiederherstellung ist NICHT verifiziert. "
+        f"Alte Werte: Phone={old_values.get('phone')!r}, "
+        f"City={old_values.get('city')!r}; "
+        f"Testwerte: Phone={NEW_PHONE!r}, City={NEW_CITY!r}. "
+        "Bitte den Datensatz manuell kontrollieren."
+    )
+    try:
+        wait_until_app_ready(driver, settings)
+        grid = driver.find_element("accessibility id", "gridView")
+        target_row = grid.find_element("xpath", TARGET_ROW_XPATH)
+        _select_target_row(driver, target_row)
+        wait_until_app_ready(driver, settings)
+
+        edit_button = driver.find_element("accessibility id", "Edit")
+        driver.execute_script("windows: invoke", edit_button)
+        wait_until_true(
+            lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) > 0,
+            DIALOG_OPEN_TIMEOUT_SECONDS,
+            "timeout",
+        )
+        dialog = driver.find_element("xpath", DIALOG_XPATH)
+
+        for field_xpath, old_value in (
+            (PHONE_FIELD_XPATH, old_values.get("phone")),
+            (CITY_FIELD_XPATH, old_values.get("city")),
+        ):
+            if old_value is not None:
+                field = dialog.find_element("xpath", field_xpath)
+                driver.execute_script("windows: setValue", field, old_value)
+        _shift_focus_with_tab(driver)
+
+        ok_buttons = dialog.find_elements("xpath", OK_BUTTON_IN_DIALOG_XPATH)
+        if ok_buttons and ok_buttons[0].is_enabled():
+            driver.execute_script("windows: invoke", ok_buttons[0])
+            wait_until_true(
+                lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
+                DIALOG_CLOSE_TIMEOUT_SECONDS,
+                "timeout",
+            )
+            print("Restore-Versuch im finally: alte Werte gesetzt und OK ausgeloest.")
+        else:
+            _close_dialog_best_effort(driver)
+            print(
+                "Restore-Versuch im finally: OK blieb disabled (Werte vermutlich "
+                "bereits alt), Dialog per Cancel geschlossen."
+            )
+        print("Der Restore-Versuch ist NICHT verifiziert - bitte manuell pruefen.")
+    except Exception as error:
+        print(f"Restore-Versuch im finally fehlgeschlagen: {error}")
+        _write_diagnostic_artifact(driver, "erp_stores_finally_restore_failure")
+
+
+def test_stores_edit_phone_city_with_ok_save_and_restore():
+    driver = None
+    settings = load_settings()
+    state = {"first_ok_done": False, "restore_verified": False}
+    old_values: dict = {}
+
+    try:
+        _start_phase_clock()
+        app_process = start_windows_app(settings)
+        main_window_handle = wait_for_main_window_handle(settings, app_process.pid)
+        _log_phase("App-Start + Fenster-Handle")
+        driver = attach_to_window_driver(
+            settings=settings,
+            top_level_window_handle=main_window_handle,
+        )
+        _log_phase("Attach")
+        wait_until_app_ready(driver, settings)
+        _log_phase("ready initial")
+
+        _navigate_to_stores(driver, settings)
+        _log_phase("Stores-Navigation + Nachweis")
+        _advance_pages(driver)
+
+        # Erstes Oeffnen: alte Werte lesen und sofort ausgeben.
+        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 1")
+        old_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
+        old_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        old_values["phone"] = old_phone
+        old_values["city"] = old_city
+        print(
+            f"\nAlte Werte {TARGET_ACCOUNT_NUMBER}: "
+            f"Phone={old_phone!r}, City={old_city!r}"
+        )
+        _log_phase("Alte Werte lesen")
+
+        if old_phone == NEW_PHONE or old_city == NEW_CITY:
+            pytest.fail(
+                f"Abbruch VOR jeder Aenderung: Datensatz {TARGET_ACCOUNT_NUMBER} "
+                f"enthaelt bereits Testwerte (Phone={old_phone!r}, "
+                f"City={old_city!r}) - vermutlich Reste eines frueheren Laufs. "
+                "Bitte den Datensatz manuell kontrollieren."
+            )
+        if old_phone != EXPECTED_OLD_PHONE or old_city != EXPECTED_OLD_CITY:
+            print(
+                "Warnung: alte Werte weichen vom Discovery-Stand ab "
+                f"(erwartet Phone={EXPECTED_OLD_PHONE!r}, "
+                f"City={EXPECTED_OLD_CITY!r}) - wiederhergestellt werden die "
+                "soeben gelesenen Werte."
+            )
+
+        # Neue Werte setzen, direkt verifizieren, speichern.
+        _set_field_value_and_verify(driver, dialog, PHONE_FIELD_XPATH, NEW_PHONE)
+        _set_field_value_and_verify(driver, dialog, CITY_FIELD_XPATH, NEW_CITY)
+        _shift_focus_with_tab(driver)
+        ok_button = _wait_ok_enabled(driver, dialog)
+        _log_phase("Neue Werte setzen + OK enabled")
+        state["first_ok_done"] = True
+        _invoke_ok_and_wait_closed(driver, ok_button)
+        print(f"Neue Werte gespeichert: Phone={NEW_PHONE!r}, City={NEW_CITY!r}")
+        _log_phase("OK speichern + Dialog zu")
+
+        # Zweites Oeffnen: Speicherung nachweisen.
+        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 2")
+        saved_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
+        saved_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        print(f"Nach dem Speichern: Phone={saved_phone!r}, City={saved_city!r}")
+        _log_phase("Speicherung pruefen")
+        if saved_phone != NEW_PHONE or saved_city != NEW_CITY:
+            pytest.fail(
+                "Speicherung nicht nachweisbar: erwartet "
+                f"Phone={NEW_PHONE!r}/City={NEW_CITY!r}, gelesen "
+                f"Phone={saved_phone!r}/City={saved_city!r}. Alte Werte waren "
+                f"Phone={old_phone!r}/City={old_city!r}. Bitte den Datensatz "
+                f"{TARGET_ACCOUNT_NUMBER} manuell kontrollieren."
+            )
+
+        # Alte Werte wiederherstellen und speichern.
+        _set_field_value_and_verify(driver, dialog, PHONE_FIELD_XPATH, old_phone)
+        _set_field_value_and_verify(driver, dialog, CITY_FIELD_XPATH, old_city)
+        _shift_focus_with_tab(driver)
+        ok_button = _wait_ok_enabled(driver, dialog)
+        _log_phase("Alte Werte setzen + OK enabled")
+        _invoke_ok_and_wait_closed(driver, ok_button)
+        print(f"Wiederherstellung gespeichert: Phone={old_phone!r}, City={old_city!r}")
+        _log_phase("OK Wiederherstellung + Dialog zu")
+
+        # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
+        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 3")
+        restored_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
+        restored_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        print(
+            f"Nach der Wiederherstellung: Phone={restored_phone!r}, "
+            f"City={restored_city!r}"
+        )
+        _log_phase("Wiederherstellung pruefen")
+        if restored_phone != old_phone or restored_city != old_city:
+            pytest.fail(
+                "WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer Datensatz "
+                f"{TARGET_ACCOUNT_NUMBER} ({TARGET_COMPANY_NAME}): erwartet "
+                f"Phone={old_phone!r}/City={old_city!r}, gelesen "
+                f"Phone={restored_phone!r}/City={restored_city!r}. Testwerte "
+                f"waren Phone={NEW_PHONE!r}/City={NEW_CITY!r}. Es werden keine "
+                "weiteren unbekannten Dialoge bestaetigt - bitte den Datensatz "
+                "manuell kontrollieren."
+            )
+        state["restore_verified"] = True
+
+        _close_dialog_via_cancel(driver)
+        _log_phase("Cancel + Dialog zu")
+        print(
+            f"Wiederherstellung verifiziert: {TARGET_ACCOUNT_NUMBER} steht "
+            f"wieder auf Phone={old_phone!r}, City={old_city!r}."
+        )
+
+    finally:
+        if driver is not None:
+            _close_dialog_best_effort(driver)
+            if state["first_ok_done"] and not state["restore_verified"]:
+                _restore_once_best_effort(driver, settings, old_values)
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+        terminate_windows_app(settings)
