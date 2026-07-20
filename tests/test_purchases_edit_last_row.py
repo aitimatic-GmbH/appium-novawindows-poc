@@ -437,3 +437,138 @@ def _open_edit_dialog_for_target_row(
         f"Edit-Purchase-Order-Dialog nach {CLICK_RETRY_ATTEMPTS} "
         "Invoke-Versuchen nicht geoeffnet.",
     )
+
+
+def _get_field_value(driver, dialog, field_xpath: str) -> str:
+    field = dialog.find_element("xpath", field_xpath)
+    value = driver.execute_script("windows: getValue", field)
+    return "" if value is None else str(value)
+
+
+def _set_field_value_and_verify(driver, dialog, field_xpath: str, new_value: str):
+    field = dialog.find_element("xpath", field_xpath)
+    driver.execute_script("windows: setValue", field, new_value)
+    actual = driver.execute_script("windows: getValue", field)
+    assert actual == new_value, (
+        f"windows: setValue auf {field_xpath} nicht wirksam: "
+        f"erwartet {new_value!r}, gelesen {actual!r}."
+    )
+
+
+def _read_combo_selected_item(combo_element) -> str | None:
+    # Auswahl-Nachweis ueber die echte WPF-Selektion im ItemStatus
+    # (etabliertes Muster aus dem Ship-Method-Test).
+    try:
+        item_status = combo_element.get_attribute("ItemStatus")
+        if not item_status:
+            return None
+        status_root = ElementTree.fromstring(item_status)
+        for prop in status_root.iter("Property"):
+            if prop.get("Name") == "SelectedItem":
+                return prop.get("Value")
+    except Exception:
+        pass
+    return None
+
+
+def _get_combo_value(dialog, combo_xpath: str) -> str | None:
+    return _read_combo_selected_item(dialog.find_element("xpath", combo_xpath))
+
+
+def _combo_option_xpath(option_name: str) -> str:
+    return f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
+
+
+def _select_combo_option_and_verify(
+    driver, dialog, combo_xpath: str, option_name: str, field_label: str
+) -> None:
+    # Combo und Option werden vor jeder Aktion frisch relativ zum Dialog
+    # gesucht; die teure Root-Suche nach dem Dialog nur einmal pro Retry.
+    def find_combo():
+        return dialog.find_element("xpath", combo_xpath)
+
+    def option_selected() -> bool:
+        try:
+            return _read_combo_selected_item(find_combo()) == option_name
+        except Exception:
+            return False
+
+    def exactly_one_option_present() -> bool:
+        try:
+            options = find_combo().find_elements(
+                "xpath", _combo_option_xpath(option_name)
+            )
+        except Exception:
+            return False
+        return len(options) == 1
+
+    last_error: Exception | None = None
+    for _attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
+        try:
+            if _attempt > 1:
+                dialog = driver.find_element("xpath", DIALOG_XPATH)
+            already_selected = option_selected()
+            _log_phase(f"{field_label}-Combo: Vorabpruefung")
+            if already_selected:
+                return
+            if _attempt < CLICK_RETRY_ATTEMPTS:
+                driver.execute_script("windows: expand", find_combo())
+            else:
+                print(f"{field_label}-Combo: letzter Versuch oeffnet per Mausklick.")
+                find_combo().click()
+            _log_phase(f"{field_label}-Combo: oeffnen")
+            wait_until_true(
+                exactly_one_option_present, COMBO_OPTION_TIMEOUT_SECONDS, "timeout"
+            )
+            _log_phase(f"{field_label}-Combo: Option sichtbar")
+            option_item = find_combo().find_element(
+                "xpath", _combo_option_xpath(option_name)
+            )
+            driver.execute_script("windows: select", option_item)
+            _log_phase(f"{field_label}-Combo: Option selektiert")
+            wait_until_true(
+                option_selected, COMBO_OPTION_TIMEOUT_SECONDS, "timeout"
+            )
+            _log_phase(f"{field_label}-Combo: Selektion verifiziert")
+            return
+        except Exception as error:
+            last_error = error
+
+    try:
+        ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+    except Exception:
+        pass
+    _fail_with_dump(
+        driver,
+        "erp_purchases_combo_failure",
+        f"{field_label}-Option {option_name!r} wurde nach "
+        f"{CLICK_RETRY_ATTEMPTS} Versuchen laut ItemStatus/SelectedItem nicht "
+        f"uebernommen (letzter Fehler: {last_error}).",
+    )
+
+
+def _read_all_field_values(driver, dialog) -> dict:
+    return {
+        "order_date": _get_field_value(driver, dialog, ORDER_DATE_FIELD_XPATH),
+        "ship_date": _get_field_value(driver, dialog, SHIP_DATE_FIELD_XPATH),
+        "vendor": _get_combo_value(dialog, VENDOR_COMBO_XPATH),
+        "order_status": _get_combo_value(dialog, ORDER_STATUS_COMBO_XPATH),
+    }
+
+
+def _set_all_fields_and_verify(driver, dialog, values: dict, phase_label: str) -> None:
+    _set_field_value_and_verify(
+        driver, dialog, ORDER_DATE_FIELD_XPATH, values["order_date"]
+    )
+    _log_phase(f"{phase_label}: Order Date setzen")
+    _set_field_value_and_verify(
+        driver, dialog, SHIP_DATE_FIELD_XPATH, values["ship_date"]
+    )
+    _log_phase(f"{phase_label}: Ship Date setzen")
+    _select_combo_option_and_verify(
+        driver, dialog, VENDOR_COMBO_XPATH, values["vendor"], "Vendor"
+    )
+    _select_combo_option_and_verify(
+        driver, dialog, ORDER_STATUS_COMBO_XPATH, values["order_status"],
+        "Order Status"
+    )
