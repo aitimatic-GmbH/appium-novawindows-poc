@@ -572,3 +572,100 @@ def _set_all_fields_and_verify(driver, dialog, values: dict, phase_label: str) -
         driver, dialog, ORDER_STATUS_COMBO_XPATH, values["order_status"],
         "Order Status"
     )
+
+
+def _shift_focus_with_tab(driver) -> None:
+    # Fokuswechsel nach dem Setzen, damit das Binding den Wert uebernimmt
+    # (etabliertes Muster aus dem Ship-Method-Test).
+    ActionChains(driver).send_keys(Keys.TAB).perform()
+
+
+def _wait_ok_enabled(driver, dialog):
+    # PART_CommitButton ist ohne Aenderung disabled - enabled ist zugleich
+    # der Nachweis, dass die App die Feldaenderungen registriert hat.
+    def ok_enabled() -> bool:
+        try:
+            ok_buttons = dialog.find_elements("xpath", OK_BUTTON_IN_DIALOG_XPATH)
+            return bool(ok_buttons) and ok_buttons[0].is_enabled()
+        except Exception:
+            return False
+
+    try:
+        wait_until_true(ok_enabled, OK_ENABLED_TIMEOUT_SECONDS, "timeout")
+    except AssertionError:
+        _fail_with_dump(
+            driver,
+            "erp_purchases_ok_disabled",
+            "OK-Button (PART_CommitButton) wurde nach den Feldaenderungen "
+            "nicht enabled - Aenderung von der App nicht registriert.",
+        )
+    return dialog.find_element("xpath", OK_BUTTON_IN_DIALOG_XPATH)
+
+
+def _invoke_ok_and_wait_closed(driver, ok_button) -> None:
+    # Der Grid-Refresh nach dem Speichern wird nicht hier abgewartet, sondern
+    # vom Zielzeilen-Poll des naechsten Oeffnens.
+    driver.execute_script("windows: invoke", ok_button)
+
+    def dialog_closed() -> bool:
+        return len(driver.find_elements("xpath", DIALOG_XPATH)) == 0
+
+    try:
+        wait_until_true(dialog_closed, DIALOG_CLOSE_TIMEOUT_SECONDS, "timeout")
+    except AssertionError:
+        _fail_with_dump(
+            driver,
+            "erp_purchases_ok_failure",
+            "Edit-Purchase-Order-Dialog blieb nach OK-Invoke offen - "
+            "moeglicherweise ein unbekannter Folgedialog; es wird nichts "
+            "automatisch bestaetigt.",
+        )
+
+
+def _close_dialog_via_cancel(driver) -> None:
+    # Jede Iteration beginnt mit find_elements: leer bedeutet geschlossen.
+    for _attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
+        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
+        if not dialogs:
+            return
+        cancel_button = dialogs[0].find_element(
+            "xpath", CANCEL_BUTTON_IN_DIALOG_XPATH
+        )
+        driver.execute_script("windows: invoke", cancel_button)
+        try:
+            wait_until_true(
+                lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
+                DIALOG_CLOSE_TIMEOUT_SECONDS,
+                "timeout",
+            )
+            return
+        except AssertionError:
+            continue
+
+    _fail_with_dump(
+        driver,
+        "erp_purchases_cancel_failure",
+        "Edit-Purchase-Order-Dialog liess sich per Cancel-Invoke nicht "
+        "schliessen.",
+    )
+
+
+def _close_dialog_best_effort(driver) -> None:
+    try:
+        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
+        if not dialogs:
+            return
+        cancel_button = dialogs[0].find_element(
+            "xpath", CANCEL_BUTTON_IN_DIALOG_XPATH
+        )
+        driver.execute_script("windows: invoke", cancel_button)
+        wait_until_true(
+            lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
+            DIALOG_CLOSE_TIMEOUT_SECONDS,
+            "timeout",
+        )
+    except Exception:
+        try:
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+        except Exception:
+            pass
