@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -24,6 +23,9 @@ DIALOG_CLOSE_TIMEOUT_SECONDS = 5
 
 DIALOG_XPATH = "//Window[@Name='Edit Sales Order']"
 SHIP_METHOD_COMBO_XPATH = ".//ComboBox[@Name='ShipMethodID']"
+INNER_DATA_ITEM_XPATH = (
+    "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
+)
 
 # Doppel-Anker zur eindeutigen Zeilenidentifikation (Account Number allein
 # kann im Grid mehrfach vorkommen, siehe Ruecksprache mit dem Auftraggeber) -
@@ -33,28 +35,6 @@ TARGET_ACCOUNT_NUMBER_ANCHOR = "10-4030-016348"
 
 # Editiertes Feld: Ship-Method-ComboBox im Dialog.
 TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
-
-_CALL_COUNTS = {"read_grid_cell_text": 0, "page_source": 0}
-
-
-def _install_page_source_counter(driver):
-    driver_class = type(driver)
-    original_property = driver_class.page_source
-
-    def _counting_page_source(self):
-        _CALL_COUNTS["page_source"] += 1
-        return original_property.fget(self)
-
-    driver_class.page_source = property(_counting_page_source)
-    return driver_class, original_property
-
-
-def _uninstall_page_source_counter(driver_class, original_property) -> None:
-    try:
-        driver_class.page_source = original_property
-    except Exception:
-        pass
-
 
 def _read_field_value_best_effort(element) -> str | None:
     # Nur Diagnose, nie testentscheidend - Muster aus
@@ -96,7 +76,6 @@ def _read_grid_cell_text(row_element, column_display_index: int) -> str | None:
     # Zellen ueber das Label ihres Custom-Containers identifizieren -
     # robuster als die Row-relativen Cell_N_x-AutomationIds, die pro Seite
     # neu vergeben werden (Row_0..Row_19 auf jeder Seite).
-    _CALL_COUNTS["read_grid_cell_text"] += 1
     text_elements = row_element.find_elements(
         "xpath",
         f".//Custom[contains(@Name, 'Column Display Index: {column_display_index}')]/Text",
@@ -114,15 +93,10 @@ def _find_row_by_order_number(driver, order_number: str):
     # Batch-Read: alle Spalte-0-Zellen der Seite in EINEM Live-Call statt
     # einem Call pro Zeile (bis zu 20x weniger Roundtrips gegen den
     # langsamen novawindows-Driver).
-    batch_read_start = time.monotonic()
     cell_texts = grid.find_elements(
         "xpath",
         ".//DataItem[@ClassName='GridViewRow']"
         "//Custom[contains(@Name, 'Column Display Index: 0')]/Text",
-    )
-    print(
-        f"    Batch-Read Spalte 0 ({len(cell_texts)} Zellen) dauerte "
-        f"{time.monotonic() - batch_read_start:.3f}s"
     )
 
     if len(cell_texts) != len(rows):
@@ -132,12 +106,7 @@ def _find_row_by_order_number(driver, order_number: str):
             "zurueck."
         )
         for row_position, row in enumerate(rows):
-            cell_read_start = time.monotonic()
             cell_text = _read_grid_cell_text(row, 0)
-            print(
-                f"    Row {row_position}: Column Display Index 0 Lesedauer "
-                f"{time.monotonic() - cell_read_start:.3f}s, Wert={cell_text!r}"
-            )
             if cell_text == order_number:
                 print(f"    Treffer auf Row-Position {row_position}.")
                 return row
@@ -162,11 +131,6 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
     # artifacts/ERP.Client_edit_dialog_locator_candidates.md).
     driver = None
     settings = load_settings()
-    test_start_timestamp = time.monotonic()
-    _CALL_COUNTS["read_grid_cell_text"] = 0
-    _CALL_COUNTS["page_source"] = 0
-    page_source_counter_class = None
-    page_source_counter_original = None
 
     try:
         app_process = start_windows_app(settings)
@@ -177,9 +141,6 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             settings=settings,
             top_level_window_handle=main_window_handle,
         )
-        page_source_counter_class, page_source_counter_original = (
-            _install_page_source_counter(driver)
-        )
 
         wait_until_app_ready(driver, settings)
 
@@ -187,15 +148,10 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             "accessibility id", "MoveToNextPageButton"
         )
         assert next_page_button.is_enabled()
-        click_timestamp = time.monotonic()
         driver.execute_script("windows: invoke", next_page_button)
         wait_until_app_ready(driver, settings)
-        print(
-            f"Seite 1 -> 2: Next-Invoke + wait_until_app_ready dauerte "
-            f"{time.monotonic() - click_timestamp:.2f}s"
-        )
 
-        # Harter Klick-Wirkungsnachweis wie in test_smoke_click.py:
+        # Harter Invoke-Wirkungsnachweis wie in test_smoke_click.py:
         # MoveToPreviousPageButton ist auf Seite 1 disabled und muss nach dem
         # Blaettern enabled sein. Neu finden statt alte Referenz nutzen
         # (Stale-Element-Vermeidung, siehe test_smoke_click.py).
@@ -220,12 +176,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
 
         assert previous_page_button.is_enabled()
 
-        find_row_start = time.monotonic()
         target_row = _find_row_by_order_number(driver, TARGET_ORDER_NUMBER)
-        print(
-            f"Seite 2: _find_row_by_order_number dauerte "
-            f"{time.monotonic() - find_row_start:.2f}s"
-        )
 
         assert target_row is not None, (
             f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} wurde auf Seite 2 "
@@ -240,7 +191,10 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             "eindeutig oder falsche Zeile getroffen."
         )
 
-        target_row.click()
+        # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
+        # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
+        inner_data_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
+        driver.execute_script("windows: select", inner_data_item)
         wait_until_app_ready(driver, settings)
 
         def edit_button_is_enabled() -> bool:
@@ -250,7 +204,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         wait_until_true(
             edit_button_is_enabled,
             EDIT_ENABLED_TIMEOUT_SECONDS,
-            f"Edit-Button wurde nach Klick auf die Zeile mit Order Number "
+            f"Edit-Button wurde nach Selektion der Zeile mit Order Number "
             f"{TARGET_ORDER_NUMBER!r} nicht enabled - Zeilenauswahl "
             "vermutlich nicht wirksam.",
         )
@@ -269,7 +223,6 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 )
 
                 driver.execute_script("windows: invoke", current_edit_button)
-                click_timestamp = time.monotonic()
 
                 wait_until_true(
                     dialog_present,
@@ -277,10 +230,6 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                     f"Edit-Dialog ({DIALOG_XPATH}) ist nach Invoke-Versuch "
                     f"{attempt} nicht innerhalb von "
                     f"{EDIT_DIALOG_OPEN_TIMEOUT_SECONDS}s erschienen.",
-                )
-                print(
-                    f"Edit-Dialog erschien nach Invoke-Versuch {attempt} nach "
-                    f"{time.monotonic() - click_timestamp:.2f}s Wartezeit."
                 )
 
                 dialog_opened = True
@@ -430,17 +379,5 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 driver.quit()
             except Exception:
                 pass
-
-        if page_source_counter_class is not None:
-            _uninstall_page_source_counter(
-                page_source_counter_class, page_source_counter_original
-            )
-
-        print(
-            f"_read_grid_cell_text Aufrufe gesamt: "
-            f"{_CALL_COUNTS['read_grid_cell_text']}"
-        )
-        print(f"page_source Aufrufe gesamt: {_CALL_COUNTS['page_source']}")
-        print(f"Gesamtzeit Test: {time.monotonic() - test_start_timestamp:.2f}s")
 
         terminate_windows_app(settings)
