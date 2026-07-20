@@ -669,3 +669,215 @@ def _close_dialog_best_effort(driver) -> None:
             ActionChains(driver).send_keys(Keys.ESCAPE).perform()
         except Exception:
             pass
+
+
+def _restore_combo_single_attempt(driver, combo_xpath: str, option_name: str) -> None:
+    combo = driver.find_element("xpath", DIALOG_XPATH).find_element(
+        "xpath", combo_xpath
+    )
+    if _read_combo_selected_item(combo) == option_name:
+        return
+    try:
+        driver.execute_script("windows: expand", combo)
+    except Exception:
+        combo.click()
+    option_xpath = _combo_option_xpath(option_name)
+
+    def option_present() -> bool:
+        current_combo = driver.find_element("xpath", DIALOG_XPATH).find_element(
+            "xpath", combo_xpath
+        )
+        return len(current_combo.find_elements("xpath", option_xpath)) == 1
+
+    wait_until_true(option_present, COMBO_OPTION_TIMEOUT_SECONDS, "timeout")
+    option_item = driver.find_element("xpath", DIALOG_XPATH).find_element(
+        "xpath", combo_xpath
+    ).find_element("xpath", option_xpath)
+    driver.execute_script("windows: select", option_item)
+
+
+def _restore_once_best_effort(driver, settings, old_values: dict) -> None:
+    # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
+    # Wiederherstellungsversuch, keine Retries.
+    print(
+        f"\nWARNUNG: Datensatz ({ROW_LABEL}) wurde geaendert und die "
+        "Wiederherstellung ist NICHT verifiziert. "
+        f"Alte Werte: {_format_values(old_values)}; "
+        f"Testwerte: {_format_values(NEW_VALUES)}. "
+        "Bitte den Datensatz manuell kontrollieren."
+    )
+    try:
+        wait_until_app_ready(driver, settings)
+        grid = driver.find_element("accessibility id", "gridView")
+        target_row = grid.find_element("xpath", TARGET_ROW_XPATH)
+        _select_target_row(driver, target_row)
+        wait_until_app_ready(driver, settings)
+
+        edit_button = driver.find_element("accessibility id", "Edit")
+        driver.execute_script("windows: invoke", edit_button)
+        wait_until_true(
+            lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) > 0,
+            DIALOG_OPEN_TIMEOUT_SECONDS,
+            "timeout",
+        )
+        dialog = driver.find_element("xpath", DIALOG_XPATH)
+
+        for field_xpath, old_value in (
+            (ORDER_DATE_FIELD_XPATH, old_values.get("order_date")),
+            (SHIP_DATE_FIELD_XPATH, old_values.get("ship_date")),
+        ):
+            if old_value:
+                field = dialog.find_element("xpath", field_xpath)
+                driver.execute_script("windows: setValue", field, old_value)
+        for combo_xpath, old_value in (
+            (VENDOR_COMBO_XPATH, old_values.get("vendor")),
+            (ORDER_STATUS_COMBO_XPATH, old_values.get("order_status")),
+        ):
+            if old_value:
+                _restore_combo_single_attempt(driver, combo_xpath, old_value)
+        _shift_focus_with_tab(driver)
+
+        dialog = driver.find_element("xpath", DIALOG_XPATH)
+        ok_buttons = dialog.find_elements("xpath", OK_BUTTON_IN_DIALOG_XPATH)
+        if ok_buttons and ok_buttons[0].is_enabled():
+            driver.execute_script("windows: invoke", ok_buttons[0])
+            wait_until_true(
+                lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
+                DIALOG_CLOSE_TIMEOUT_SECONDS,
+                "timeout",
+            )
+            print("Restore-Versuch im finally: alte Werte gesetzt und OK ausgeloest.")
+        else:
+            _close_dialog_best_effort(driver)
+            print(
+                "Restore-Versuch im finally: OK blieb disabled (Werte vermutlich "
+                "bereits alt), Dialog per Cancel geschlossen."
+            )
+        print("Der Restore-Versuch ist NICHT verifiziert - bitte manuell pruefen.")
+    except Exception as error:
+        print(f"Restore-Versuch im finally fehlgeschlagen: {error}")
+        _write_diagnostic_artifact(driver, "erp_purchases_finally_restore_failure")
+
+
+def test_purchases_edit_last_row_with_ok_save_and_restore():
+    driver = None
+    settings = load_settings()
+    state = {"first_ok_done": False, "restore_verified": False}
+    old_values: dict = {}
+
+    try:
+        _start_phase_clock()
+        app_process = start_windows_app(settings)
+        main_window_handle = wait_for_main_window_handle(settings, app_process.pid)
+        _log_phase("App-Start + Fenster-Handle")
+        driver = attach_to_window_driver(
+            settings=settings,
+            top_level_window_handle=main_window_handle,
+        )
+        _log_phase("Attach")
+        wait_until_app_ready(driver, settings)
+        _log_phase("ready initial")
+
+        _navigate_to_purchases(driver, settings)
+        _log_phase("Purchases-Navigation + Nachweis")
+        _jump_to_last_page(driver)
+
+        # Erstes Oeffnen: Order-Details-Nachweis, alte Werte lesen und ausgeben.
+        dialog = _open_edit_dialog_for_target_row(
+            driver, "Oeffnen 1", verify_order_details=True
+        )
+        old_values.update(_read_all_field_values(driver, dialog))
+        print(f"\nAlte Werte ({ROW_LABEL}): {_format_values(old_values)}")
+        _log_phase("Alte Werte lesen")
+
+        if (
+            not old_values["order_date"]
+            or not old_values["ship_date"]
+            or old_values["vendor"] is None
+            or old_values["order_status"] is None
+        ):
+            pytest.fail(
+                "Abbruch VOR jeder Aenderung: mindestens ein Ausgangswert ist "
+                f"nicht lesbar ({_format_values(old_values)}) - ohne "
+                "Ausgangswerte ist keine verifizierte Wiederherstellung moeglich."
+            )
+        if any(old_values[key] == NEW_VALUES[key] for key in NEW_VALUES):
+            pytest.fail(
+                f"Abbruch VOR jeder Aenderung: Datensatz ({ROW_LABEL}) enthaelt "
+                f"bereits Testwerte ({_format_values(old_values)}) - vermutlich "
+                "Reste eines frueheren Laufs. Bitte manuell kontrollieren."
+            )
+        if old_values != EXPECTED_OLD_VALUES:
+            print(
+                "Warnung: alte Werte weichen vom Discovery-Stand ab "
+                f"(erwartet {_format_values(EXPECTED_OLD_VALUES)}) - "
+                "wiederhergestellt werden die soeben gelesenen Werte."
+            )
+
+        # Neue Werte setzen, direkt verifizieren, speichern.
+        _set_all_fields_and_verify(driver, dialog, NEW_VALUES, "Neue Werte")
+        _shift_focus_with_tab(driver)
+        ok_button = _wait_ok_enabled(driver, dialog)
+        _log_phase("Neue Werte: Tab + OK enabled")
+        state["first_ok_done"] = True
+        _invoke_ok_and_wait_closed(driver, ok_button)
+        print(f"Neue Werte gespeichert: {_format_values(NEW_VALUES)}")
+        _log_phase("OK speichern + Dialog zu")
+
+        # Zweites Oeffnen: Speicherung nachweisen.
+        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 2")
+        saved_values = _read_all_field_values(driver, dialog)
+        print(f"Nach dem Speichern: {_format_values(saved_values)}")
+        _log_phase("Speicherung pruefen")
+        if saved_values != NEW_VALUES:
+            pytest.fail(
+                f"Speicherung nicht nachweisbar: erwartet "
+                f"{_format_values(NEW_VALUES)}, gelesen "
+                f"{_format_values(saved_values)}. Alte Werte waren "
+                f"{_format_values(old_values)}. Bitte den Datensatz "
+                f"({ROW_LABEL}) manuell kontrollieren."
+            )
+
+        # Alte Werte wiederherstellen und speichern.
+        _set_all_fields_and_verify(driver, dialog, old_values, "Alte Werte")
+        _shift_focus_with_tab(driver)
+        ok_button = _wait_ok_enabled(driver, dialog)
+        _log_phase("Alte Werte: Tab + OK enabled")
+        _invoke_ok_and_wait_closed(driver, ok_button)
+        print(f"Wiederherstellung gespeichert: {_format_values(old_values)}")
+        _log_phase("OK Wiederherstellung + Dialog zu")
+
+        # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
+        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 3")
+        restored_values = _read_all_field_values(driver, dialog)
+        print(f"Nach der Wiederherstellung: {_format_values(restored_values)}")
+        _log_phase("Wiederherstellung pruefen")
+        if restored_values != old_values:
+            pytest.fail(
+                f"WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer den Datensatz "
+                f"({ROW_LABEL}): erwartet {_format_values(old_values)}, gelesen "
+                f"{_format_values(restored_values)}. Testwerte waren "
+                f"{_format_values(NEW_VALUES)}. Es werden keine weiteren "
+                "unbekannten Dialoge bestaetigt - bitte den Datensatz manuell "
+                "kontrollieren."
+            )
+        state["restore_verified"] = True
+
+        _close_dialog_via_cancel(driver)
+        _log_phase("Cancel + Dialog zu")
+        print(
+            f"Wiederherstellung verifiziert: Datensatz ({ROW_LABEL}) steht "
+            f"wieder auf {_format_values(old_values)}."
+        )
+
+    finally:
+        if driver is not None:
+            _close_dialog_best_effort(driver)
+            if state["first_ok_done"] and not state["restore_verified"]:
+                _restore_once_best_effort(driver, settings, old_values)
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+        terminate_windows_app(settings)
