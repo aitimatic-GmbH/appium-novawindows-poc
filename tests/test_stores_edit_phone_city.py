@@ -208,3 +208,125 @@ def _advance_pages(driver) -> None:
             f"nachher {pager_current!r}"
         )
         _log_phase(f"Seitenwechsel {step_number}")
+
+
+def _find_target_row(driver):
+    # Pollt bis zum eindeutigen Treffer; das ersetzt nach einem OK-Speichern
+    # das pauschale ready-Warten auf den Grid-Refresh.
+    found = {"row": None, "hits": 0}
+
+    def exactly_one_row_found() -> bool:
+        try:
+            grid = driver.find_element("accessibility id", "gridView")
+            target_rows = grid.find_elements("xpath", TARGET_ROW_XPATH)
+        except Exception:
+            return False
+        found["hits"] = len(target_rows)
+        if len(target_rows) == 1:
+            found["row"] = target_rows[0]
+            return True
+        return False
+
+    try:
+        wait_until_true(
+            exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout"
+        )
+    except AssertionError:
+        _fail_with_dump(
+            driver,
+            "erp_stores_target_row_missing",
+            f"Zielzeile {TARGET_ACCOUNT_NUMBER} nicht eindeutig gefunden "
+            f"(zuletzt {found['hits']} Treffer) - falsche Seite oder "
+            "geaenderte Daten?",
+        )
+    target_row = found["row"]
+
+    row_name = target_row.get_attribute("Name")
+    if row_name != TARGET_COMPANY_NAME:
+        _fail_with_dump(
+            driver,
+            "erp_stores_target_row_mismatch",
+            f"Zeilen-Identitaet passt nicht: Name {row_name!r} statt "
+            f"{TARGET_COMPANY_NAME!r} fuer {TARGET_ACCOUNT_NUMBER}.",
+        )
+    return target_row
+
+
+def _select_target_row(driver, target_row) -> None:
+    # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
+    # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
+    inner_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
+    driver.execute_script("windows: select", inner_item)
+
+
+def _wait_edit_button_enabled(driver):
+    # Enabled-Poll auf dem einmal gefundenen Button (billig); erst bei Timeout
+    # eine frische Suche als Absicherung gegen ein neu erzeugtes Element.
+    edit_buttons = driver.find_elements("accessibility id", "Edit")
+    if not edit_buttons:
+        _fail_with_dump(
+            driver,
+            "erp_stores_edit_missing",
+            "Edit-Button in der Stores-Ansicht nicht gefunden.",
+        )
+    edit_button = edit_buttons[0]
+
+    def edit_enabled() -> bool:
+        try:
+            return edit_button.is_enabled()
+        except Exception:
+            return False
+
+    try:
+        wait_until_true(edit_enabled, EDIT_ENABLED_TIMEOUT_SECONDS, "timeout")
+        return edit_button
+    except AssertionError:
+        pass
+
+    edit_button = driver.find_element("accessibility id", "Edit")
+    if not edit_button.is_enabled():
+        _fail_with_dump(
+            driver,
+            "erp_stores_edit_disabled",
+            "Edit-Button wurde nach Selektion der Zielzeile nicht enabled.",
+        )
+    return edit_button
+
+
+def _open_edit_dialog_for_target_row(driver, phase_label: str = "Oeffnen"):
+    # Zeile wird bei jedem Oeffnen frisch gesucht und pattern-basiert selektiert;
+    # die GridViewRow selbst unterstuetzt kein SelectionItemPattern, ihr inneres
+    # Data-Item schon.
+    target_row = _find_target_row(driver)
+    _log_phase(f"{phase_label}: Zielzeile finden")
+    _select_target_row(driver, target_row)
+    edit_button = _wait_edit_button_enabled(driver)
+    _log_phase(f"{phase_label}: Zeilenselektion + Edit enabled")
+
+    found_dialog = {"element": None}
+
+    def dialog_present() -> bool:
+        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
+        if dialogs:
+            found_dialog["element"] = dialogs[0]
+            return True
+        return False
+
+    for attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
+        if attempt > 1:
+            edit_button = driver.find_element("accessibility id", "Edit")
+        driver.execute_script("windows: invoke", edit_button)
+        try:
+            wait_until_true(dialog_present, DIALOG_OPEN_TIMEOUT_SECONDS, "timeout")
+            _log_phase(f"{phase_label}: Edit-Dialog offen")
+            return found_dialog["element"]
+        except AssertionError:
+            if attempt < CLICK_RETRY_ATTEMPTS:
+                print(f"Edit-Invoke {attempt} ohne sichtbaren Dialog, Retry.")
+
+    _fail_with_dump(
+        driver,
+        "erp_stores_edit_dialog_failure",
+        f"Edit-Store-Dialog nach {CLICK_RETRY_ATTEMPTS} Invoke-Versuchen "
+        "nicht geoeffnet.",
+    )
