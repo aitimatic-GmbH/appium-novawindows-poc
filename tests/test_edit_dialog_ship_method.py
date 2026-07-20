@@ -126,7 +126,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
     # disabled (Vorbedingung) -> Ship Method per ComboBox aendern -> OK wird
     # enabled (Wirkungs-Assert) -> Dialog per Cancel schliessen. Kein
     # OK-Klick, keine Datenaenderung im ERP (siehe
-    # artifacts/ERP.Client_edit_dialog_locator_candidates.md).
+    # docs/ERP.Client_edit_dialog_locator_candidates.md).
     driver = None
     edit_dialog = None
     settings = load_settings()
