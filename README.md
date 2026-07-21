@@ -41,6 +41,8 @@ In der `.env` anschließend die Werte eintragen:
 | `WINDOWS_APP_SPLASH_MARKER` | nein | Text/Klasse des abzuwartenden Splash-Screens |
 | `SMOKE_CLICK_ACCESSIBILITY_ID` / `SMOKE_CLICK_NAME` | nein | Locator für den Smoke-Click-Test |
 
+`WINDOWS_APP_PATH` ist absolut anzugeben, da die Zielanwendung nicht Teil dieses Repositories ist, sondern separat auf dem jeweiligen Windows-Host installiert wird.
+
 ## Nutzung
 
 Appium-Server starten:
