@@ -1,5 +1,6 @@
 {
   "platformName": "Windows",
   "appium:automationName": "NovaWindows",
-  "appium:app": "C:\\Path\\To\\TestApp.exe"
+  "appium:appTopLevelWindow": "REPLACE_WITH_WINDOW_HANDLE",
+  "appium:shouldCloseApp": false
 }
