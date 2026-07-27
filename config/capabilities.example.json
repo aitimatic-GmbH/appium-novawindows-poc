@@ -1,0 +1,6 @@
+{
+  "platformName": "Windows",
+  "appium:automationName": "NovaWindows",
+  "appium:appTopLevelWindow": "REPLACE_WITH_WINDOW_HANDLE",
+  "appium:shouldCloseApp": false
+}

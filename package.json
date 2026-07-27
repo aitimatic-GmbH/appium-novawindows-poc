@@ -1,0 +1,35 @@
+{
+  "name": "appium-novawindows-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Proof of concept for Windows desktop automation with Appium and NovaWindows Driver.",
+  "scripts": {
+    "appium": "appium",
+    "appium:version": "appium -v",
+    "appium:start": "appium --address 127.0.0.1 --port 4723 --log-level info"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aitimatic-GmbH/appium-novawindows-poc.git"
+  },
+  "keywords": [
+    "appium",
+    "novawindows",
+    "windows",
+    "desktop-automation",
+    "poc"
+  ],
+  "author": {
+    "name": "Mohamad Mussa"
+  },
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aitimatic-GmbH/appium-novawindows-poc/issues"
+  },
+  "homepage": "https://github.com/aitimatic-GmbH/appium-novawindows-poc#readme",
+  "devDependencies": {
+    "appium": "^3.5.2",
+    "appium-novawindows-driver": "^1.4.1"
+  }
+}

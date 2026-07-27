@@ -214,5 +214,28 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Streamlit
-.streamlit/secrets.toml
+# npm
+node_modules/
+npm-debug.log*
+package-lock.json.bak
+
+# local appium runtime/cache
+.appium/
+
+# env
+.env
+
+# python later
+.venv/
+__pycache__/
+.pytest_cache/
+
+# test artifacts
+artifacts/
+!artifacts/.gitkeep
+
+# editor/os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
