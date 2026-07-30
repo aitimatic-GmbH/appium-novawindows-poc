@@ -66,6 +66,10 @@ pytest
 - `test_session_start.py`: Appium-Session gegen die Zielanwendung aufbauen
 - `test_smoke_click.py`: Pager bedienen (Grid-Pagination-Klick), Wirkungsnachweis über den Pager-Wert
 - `test_edit_dialog_ship_method.py`: Grid-Zeile auswählen, Edit-Dialog öffnen, Ship-Method-Dropdown ändern, Zustandsänderung am OK-Button prüfen, sicher per Cancel beenden
+- `test_stores_edit_phone_city.py`: Datensatz über einen stabilen Anker finden, Telefon und Ort über das ValuePattern setzen, über OK speichern, beim erneuten Öffnen prüfen und die Ursprungswerte wiederherstellen
+- `test_purchases_edit_last_row.py`: letzte Bestellung der letzten Seite ändern (Datumsfelder und ComboBoxen), über OK speichern, prüfen und wiederherstellen
+
+Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontrolliert wieder her; sie brechen vor jeder Änderung hart ab, wenn der Datensatz bereits Testwerte trägt.
 
 ### Discovery-/Diagnosetests
 
@@ -96,8 +100,12 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `pages/`: Fachobjekte für die UI (`MainWindow`, `EditRecordDialog`), kapseln wiederverwendete Locatoren und Interaktionsmuster
   - `polling.py`: generischer Polling-Helfer (`wait_until_true`), von Fachobjekten und Tests genutzt
 - `tests/`: pytest-Testsuite
+- `docs/`: Projektdokumentation
+  - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
+  - `ERP.Client_locator_candidates.md`, `ERP.Client_edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
+  - `poc_result.md`: zusammengefasste POC-Ergebnisse und belegte Laufzeiten
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
-- `artifacts/`: lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps; der Inhalt ist bis auf `.gitkeep` gitignored und damit nicht Teil des Repository-Inhalts
+- `artifacts/`: lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps; der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an
 
 ## Hinweise
 
