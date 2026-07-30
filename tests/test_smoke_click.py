@@ -1,5 +1,6 @@
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
+from appium_novawindows_poc.pages import MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
@@ -7,32 +8,6 @@ from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._waits import wait_until_true
 
 PREVIOUS_ENABLED_TIMEOUT_SECONDS = 20
-
-
-def _read_pager_value_best_effort(driver) -> str | None:
-    # DataPagerTextBox nur als Zusatzdiagnose lesen - nie testentscheidend,
-    # da unklar ist, ob NovaWindows den Wert stabil exponiert.
-    try:
-        pager_textbox = driver.find_element("accessibility id", "DataPagerTextBox")
-    except Exception:
-        return None
-
-    try:
-        value = pager_textbox.text
-        if value:
-            return value
-    except Exception:
-        pass
-
-    for attribute_name in ("Value.Value", "Value", "LegacyIAccessible.Value"):
-        try:
-            value = pager_textbox.get_attribute(attribute_name)
-            if value:
-                return value
-        except Exception:
-            pass
-
-    return None
 
 
 def test_smoke_click_safe_main_window_element():
@@ -55,11 +30,12 @@ def test_smoke_click_safe_main_window_element():
 
         wait_until_app_ready(driver, settings)
 
-        next_page_button = driver.find_element("accessibility id", "MoveToNextPageButton")
+        main_window = MainWindow(driver)
+        next_page_button = main_window.next_page_button()
 
         assert next_page_button.is_enabled()
 
-        pager_value_before = _read_pager_value_best_effort(driver)
+        pager_value_before = main_window.pager_value_best_effort()
 
         # windows: invoke statt Mausklick, damit der Test unabhaengig von
         # Aufloesung, Skalierung und Fenstergroesse ist.
@@ -69,9 +45,7 @@ def test_smoke_click_safe_main_window_element():
 
         def previous_page_button_is_enabled() -> bool:
             # Stale-Element-Vermeidung: Button in jeder Poll-Iteration neu suchen.
-            return driver.find_element(
-                "accessibility id", "MoveToPreviousPageButton"
-            ).is_enabled()
+            return main_window.previous_page_button().is_enabled()
 
         # Harter Invoke-Wirkungsnachweis: MoveToPreviousPageButton ist auf Seite 1
         # disabled (Katalog Abschnitt 5) und muss nach dem Blättern enabled sein.
@@ -85,9 +59,7 @@ def test_smoke_click_safe_main_window_element():
             # Altes Element-Handle kann nach dem Grid-Refresh stale sein, daher neu suchen.
             print("\nErster Invoke ohne Wirkung, zweiter Invoke mit frisch gesuchtem Button.")
 
-            next_page_button = driver.find_element(
-                "accessibility id", "MoveToNextPageButton"
-            )
+            next_page_button = main_window.next_page_button()
             assert next_page_button.is_enabled()
 
             driver.execute_script("windows: invoke", next_page_button)
@@ -99,13 +71,11 @@ def test_smoke_click_safe_main_window_element():
                 "nicht enabled - Seitenwechsel unwirksam.",
             )
 
-        previous_page_button = driver.find_element(
-            "accessibility id", "MoveToPreviousPageButton"
-        )
+        previous_page_button = main_window.previous_page_button()
         assert previous_page_button.is_enabled()
 
         # Zusatzdiagnose (nie testentscheidend): Pager-Wert vorher/nachher.
-        pager_value_after = _read_pager_value_best_effort(driver)
+        pager_value_after = main_window.pager_value_best_effort()
         print(
             f"\nDataPagerTextBox vorher: {pager_value_before!r}, "
             f"nachher: {pager_value_after!r}"
