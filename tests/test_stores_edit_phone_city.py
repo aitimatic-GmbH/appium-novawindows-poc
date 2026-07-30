@@ -11,19 +11,18 @@ from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
+from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._waits import wait_until_true
-from tests.test_smoke_click import _read_pager_value_best_effort
 
 PAGES_FORWARD = 4
 STORES_VIEW_TIMEOUT_SECONDS = 15
 PAGE_CHANGE_TIMEOUT_SECONDS = 15
 TARGET_ROW_TIMEOUT_SECONDS = 15
 EDIT_ENABLED_TIMEOUT_SECONDS = 20
-DIALOG_OPEN_TIMEOUT_SECONDS = 10
 OK_ENABLED_TIMEOUT_SECONDS = 10
 DIALOG_CLOSE_TIMEOUT_SECONDS = 10
 CLICK_RETRY_ATTEMPTS = 3
@@ -49,8 +48,6 @@ INNER_DATA_ITEM_XPATH = (
 DIALOG_XPATH = "//Window[@Name='Edit Store']"
 PHONE_FIELD_XPATH = ".//Edit[@Name='Phone']"
 CITY_FIELD_XPATH = ".//Edit[@Name='City']"
-OK_BUTTON_IN_DIALOG_XPATH = ".//Button[@AutomationId='PART_CommitButton']"
-CANCEL_BUTTON_IN_DIALOG_XPATH = ".//Button[@AutomationId='PART_CancelButton']"
 
 _PHASE_CLOCK = {"last": 0.0}
 
@@ -89,15 +86,15 @@ def _fail_with_dump(driver, prefix: str, message: str) -> None:
     pytest.fail(f"{message} Diagnose-Dump: {artifact_path}")
 
 
-def _navigate_to_stores(driver, settings) -> None:
+def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
     # Wie im Discovery-Test: windows: select bevorzugt, einmaliger Fallback auf
     # Mausklick; Erfolg wird ueber den Breadcrumb-Eintrag nachgewiesen.
     def stores_breadcrumb_present() -> bool:
         return len(driver.find_elements("xpath", STORES_BREADCRUMB_TEXT_XPATH)) > 0
 
-    stores_tree_item = driver.find_element(
-        "accessibility id", "LeftNavigationTreeView"
-    ).find_element("xpath", STORES_TREE_ITEM_XPATH)
+    stores_tree_item = main_window.left_navigation_tree().find_element(
+        "xpath", STORES_TREE_ITEM_XPATH
+    )
 
     navigation_method = None
     try:
@@ -120,9 +117,9 @@ def _navigate_to_stores(driver, settings) -> None:
             navigation_method = None
 
     if navigation_method is None:
-        stores_tree_item = driver.find_element(
-            "accessibility id", "LeftNavigationTreeView"
-        ).find_element("xpath", STORES_TREE_ITEM_XPATH)
+        stores_tree_item = main_window.left_navigation_tree().find_element(
+            "xpath", STORES_TREE_ITEM_XPATH
+        )
         stores_tree_item.click()
         navigation_method = "element.click()"
         wait_until_app_ready(driver, settings)
@@ -141,10 +138,10 @@ def _navigate_to_stores(driver, settings) -> None:
     print(f"\nStores-Navigation per: {navigation_method}")
 
 
-def _advance_pages(driver) -> None:
+def _advance_pages(driver, main_window: MainWindow) -> None:
     # 4x weiterblaettern; Wirkungsnachweis pro Invoke ausschliesslich ueber den
     # Pager-Wert (in der Discovery als harter Indikator verifiziert).
-    pager_current = _read_pager_value_best_effort(driver)
+    pager_current = main_window.pager_value_best_effort()
     if pager_current is None:
         _fail_with_dump(
             driver,
@@ -160,7 +157,7 @@ def _advance_pages(driver) -> None:
         pager_seen = {"value": None}
 
         def pager_changed() -> bool:
-            pager_now = _read_pager_value_best_effort(driver)
+            pager_now = main_window.pager_value_best_effort()
             if pager_now is not None and pager_now != pager_before:
                 pager_seen["value"] = pager_now
                 return True
@@ -168,10 +165,12 @@ def _advance_pages(driver) -> None:
 
         page_advanced = False
         for attempt in (1, 2):
-            next_page_buttons = driver.find_elements(
-                "accessibility id", "MoveToNextPageButton"
-            )
-            if not next_page_buttons or not next_page_buttons[0].is_enabled():
+            try:
+                next_page_button = main_window.next_page_button()
+            except Exception:
+                next_page_button = None
+
+            if next_page_button is None or not next_page_button.is_enabled():
                 _fail_with_dump(
                     driver,
                     "erp_stores_page_change_failure",
@@ -180,7 +179,7 @@ def _advance_pages(driver) -> None:
                     f"(Pager-Stand: {pager_before!r}).",
                 )
 
-            driver.execute_script("windows: invoke", next_page_buttons[0])
+            driver.execute_script("windows: invoke", next_page_button)
 
             try:
                 wait_until_true(pager_changed, PAGE_CHANGE_TIMEOUT_SECONDS, "timeout")
@@ -210,14 +209,14 @@ def _advance_pages(driver) -> None:
         _log_phase(f"Seitenwechsel {step_number}")
 
 
-def _find_target_row(driver):
+def _find_target_row(driver, main_window: MainWindow):
     # Pollt bis zum eindeutigen Treffer; das ersetzt nach einem OK-Speichern
     # das pauschale ready-Warten auf den Grid-Refresh.
     found = {"row": None, "hits": 0}
 
     def exactly_one_row_found() -> bool:
         try:
-            grid = driver.find_element("accessibility id", "gridView")
+            grid = main_window.grid()
             target_rows = grid.find_elements("xpath", TARGET_ROW_XPATH)
         except Exception:
             return False
@@ -259,93 +258,28 @@ def _select_target_row(driver, target_row) -> None:
     driver.execute_script("windows: select", inner_item)
 
 
-def _wait_edit_button_enabled(driver):
-    # Enabled-Poll auf dem einmal gefundenen Button (billig); erst bei Timeout
-    # eine frische Suche als Absicherung gegen ein neu erzeugtes Element.
-    edit_buttons = driver.find_elements("accessibility id", "Edit")
-    if not edit_buttons:
-        _fail_with_dump(
-            driver,
-            "erp_stores_edit_missing",
-            "Edit-Button in der Stores-Ansicht nicht gefunden.",
-        )
-    edit_button = edit_buttons[0]
-
-    def edit_enabled() -> bool:
-        try:
-            return edit_button.is_enabled()
-        except Exception:
-            return False
-
-    try:
-        wait_until_true(edit_enabled, EDIT_ENABLED_TIMEOUT_SECONDS, "timeout")
-        return edit_button
-    except AssertionError:
-        pass
-
-    edit_button = driver.find_element("accessibility id", "Edit")
-    if not edit_button.is_enabled():
-        _fail_with_dump(
-            driver,
-            "erp_stores_edit_disabled",
-            "Edit-Button wurde nach Selektion der Zielzeile nicht enabled.",
-        )
-    return edit_button
-
-
-def _open_edit_dialog_for_target_row(driver, phase_label: str = "Oeffnen"):
-    # Zeile wird bei jedem Oeffnen frisch gesucht und pattern-basiert selektiert;
-    # die GridViewRow selbst unterstuetzt kein SelectionItemPattern, ihr inneres
-    # Data-Item schon.
-    target_row = _find_target_row(driver)
+def _open_edit_dialog_for_target_row(
+    driver, main_window: MainWindow, edit_dialog: EditRecordDialog, phase_label: str = "Öffnen"
+):
+    # Zeile wird bei jedem Öffnen frisch gesucht und pattern-basiert selektiert;
+    # die GridViewRow selbst unterstützt kein SelectionItemPattern, ihr inneres
+    # Data-Item schon. Warten auf enabled/Invoke/Dialog-Erscheinen übernimmt
+    # EditRecordDialog.open_via_edit_button.
+    target_row = _find_target_row(driver, main_window)
     _log_phase(f"{phase_label}: Zielzeile finden")
     _select_target_row(driver, target_row)
-    edit_button = _wait_edit_button_enabled(driver)
-    _log_phase(f"{phase_label}: Zeilenselektion + Edit enabled")
 
-    found_dialog = {"element": None}
+    try:
+        edit_dialog.open_via_edit_button(
+            main_window, CLICK_RETRY_ATTEMPTS, EDIT_ENABLED_TIMEOUT_SECONDS
+        )
+    except AssertionError as error:
+        artifact_path = _write_diagnostic_artifact(
+            driver, "erp_stores_edit_dialog_failure"
+        )
+        raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
-    def dialog_present() -> bool:
-        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
-        if dialogs:
-            found_dialog["element"] = dialogs[0]
-            return True
-        return False
-
-    for attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
-        if attempt > 1:
-            edit_button = driver.find_element("accessibility id", "Edit")
-        driver.execute_script("windows: invoke", edit_button)
-        try:
-            wait_until_true(dialog_present, DIALOG_OPEN_TIMEOUT_SECONDS, "timeout")
-            _log_phase(f"{phase_label}: Edit-Dialog offen")
-            return found_dialog["element"]
-        except AssertionError:
-            if attempt < CLICK_RETRY_ATTEMPTS:
-                print(f"Edit-Invoke {attempt} ohne sichtbaren Dialog, Retry.")
-
-    _fail_with_dump(
-        driver,
-        "erp_stores_edit_dialog_failure",
-        f"Edit-Store-Dialog nach {CLICK_RETRY_ATTEMPTS} Invoke-Versuchen "
-        "nicht geoeffnet.",
-    )
-
-
-def _get_field_value(driver, dialog, field_xpath: str) -> str:
-    field = dialog.find_element("xpath", field_xpath)
-    value = driver.execute_script("windows: getValue", field)
-    return "" if value is None else str(value)
-
-
-def _set_field_value_and_verify(driver, dialog, field_xpath: str, new_value: str):
-    field = dialog.find_element("xpath", field_xpath)
-    driver.execute_script("windows: setValue", field, new_value)
-    actual = driver.execute_script("windows: getValue", field)
-    assert actual == new_value, (
-        f"windows: setValue auf {field_xpath} nicht wirksam: "
-        f"erwartet {new_value!r}, gelesen {actual!r}."
-    )
+    _log_phase(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
 
 
 def _shift_focus_with_tab(driver) -> None:
@@ -354,93 +288,9 @@ def _shift_focus_with_tab(driver) -> None:
     ActionChains(driver).send_keys(Keys.TAB).perform()
 
 
-def _wait_ok_enabled(driver, dialog):
-    # PART_CommitButton ist ohne Aenderung disabled - enabled ist zugleich
-    # der Nachweis, dass die App die Feldaenderung registriert hat.
-    def ok_enabled() -> bool:
-        ok_buttons = dialog.find_elements("xpath", OK_BUTTON_IN_DIALOG_XPATH)
-        return bool(ok_buttons) and ok_buttons[0].is_enabled()
-
-    try:
-        wait_until_true(ok_enabled, OK_ENABLED_TIMEOUT_SECONDS, "timeout")
-    except AssertionError:
-        _fail_with_dump(
-            driver,
-            "erp_stores_ok_disabled",
-            "OK-Button (PART_CommitButton) wurde nach der Feldaenderung "
-            "nicht enabled - Aenderung von der App nicht registriert.",
-        )
-    return dialog.find_element("xpath", OK_BUTTON_IN_DIALOG_XPATH)
-
-
-def _invoke_ok_and_wait_closed(driver, ok_button) -> None:
-    # Der Grid-Refresh nach dem Speichern wird nicht hier abgewartet, sondern
-    # vom Zielzeilen-Poll des naechsten Oeffnens.
-    driver.execute_script("windows: invoke", ok_button)
-
-    def dialog_closed() -> bool:
-        return len(driver.find_elements("xpath", DIALOG_XPATH)) == 0
-
-    try:
-        wait_until_true(dialog_closed, DIALOG_CLOSE_TIMEOUT_SECONDS, "timeout")
-    except AssertionError:
-        _fail_with_dump(
-            driver,
-            "erp_stores_ok_failure",
-            "Edit-Store-Dialog blieb nach OK-Invoke offen - moeglicherweise "
-            "ein unbekannter Folgedialog; es wird nichts automatisch bestaetigt.",
-        )
-
-
-def _close_dialog_via_cancel(driver) -> None:
-    # Jede Iteration beginnt mit find_elements: leer bedeutet geschlossen.
-    for _attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
-        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
-        if not dialogs:
-            return
-        cancel_button = dialogs[0].find_element(
-            "xpath", CANCEL_BUTTON_IN_DIALOG_XPATH
-        )
-        driver.execute_script("windows: invoke", cancel_button)
-        try:
-            wait_until_true(
-                lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
-                DIALOG_CLOSE_TIMEOUT_SECONDS,
-                "timeout",
-            )
-            return
-        except AssertionError:
-            continue
-
-    _fail_with_dump(
-        driver,
-        "erp_stores_cancel_failure",
-        "Edit-Store-Dialog liess sich per Cancel-Invoke nicht schliessen.",
-    )
-
-
-def _close_dialog_best_effort(driver) -> None:
-    try:
-        dialogs = driver.find_elements("xpath", DIALOG_XPATH)
-        if not dialogs:
-            return
-        cancel_button = dialogs[0].find_element(
-            "xpath", CANCEL_BUTTON_IN_DIALOG_XPATH
-        )
-        driver.execute_script("windows: invoke", cancel_button)
-        wait_until_true(
-            lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
-            DIALOG_CLOSE_TIMEOUT_SECONDS,
-            "timeout",
-        )
-    except Exception:
-        try:
-            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-        except Exception:
-            pass
-
-
-def _restore_once_best_effort(driver, settings, old_values: dict) -> None:
+def _restore_once_best_effort(
+    driver, settings, main_window: MainWindow, edit_dialog: EditRecordDialog, old_values: dict
+) -> None:
     # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
     # Wiederherstellungsversuch, keine Retries.
     print(
@@ -453,40 +303,31 @@ def _restore_once_best_effort(driver, settings, old_values: dict) -> None:
     )
     try:
         wait_until_app_ready(driver, settings)
-        grid = driver.find_element("accessibility id", "gridView")
+        grid = main_window.grid()
         target_row = grid.find_element("xpath", TARGET_ROW_XPATH)
         _select_target_row(driver, target_row)
         wait_until_app_ready(driver, settings)
 
-        edit_button = driver.find_element("accessibility id", "Edit")
-        driver.execute_script("windows: invoke", edit_button)
-        wait_until_true(
-            lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) > 0,
-            DIALOG_OPEN_TIMEOUT_SECONDS,
-            "timeout",
-        )
-        dialog = driver.find_element("xpath", DIALOG_XPATH)
+        # Nur EIN Versuch (retry_attempts=1) - dies ist bereits der Notfallpfad.
+        edit_dialog.open_via_edit_button(main_window, 1, EDIT_ENABLED_TIMEOUT_SECONDS)
 
         for field_xpath, old_value in (
             (PHONE_FIELD_XPATH, old_values.get("phone")),
             (CITY_FIELD_XPATH, old_values.get("city")),
         ):
             if old_value is not None:
-                field = dialog.find_element("xpath", field_xpath)
-                driver.execute_script("windows: setValue", field, old_value)
+                edit_dialog.set_field_value_and_verify(field_xpath, old_value)
         _shift_focus_with_tab(driver)
 
-        ok_buttons = dialog.find_elements("xpath", OK_BUTTON_IN_DIALOG_XPATH)
+        dialog = edit_dialog.element()
+        ok_buttons = dialog.find_elements("xpath", EditRecordDialog.OK_BUTTON_XPATH)
         if ok_buttons and ok_buttons[0].is_enabled():
-            driver.execute_script("windows: invoke", ok_buttons[0])
-            wait_until_true(
-                lambda: len(driver.find_elements("xpath", DIALOG_XPATH)) == 0,
-                DIALOG_CLOSE_TIMEOUT_SECONDS,
-                "timeout",
+            edit_dialog.invoke_ok_and_wait_closed(
+                ok_buttons[0], DIALOG_CLOSE_TIMEOUT_SECONDS
             )
             print("Restore-Versuch im finally: alte Werte gesetzt und OK ausgeloest.")
         else:
-            _close_dialog_best_effort(driver)
+            edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
             print(
                 "Restore-Versuch im finally: OK blieb disabled (Werte vermutlich "
                 "bereits alt), Dialog per Cancel geschlossen."
@@ -499,6 +340,8 @@ def _restore_once_best_effort(driver, settings, old_values: dict) -> None:
 
 def test_stores_edit_phone_city_with_ok_save_and_restore():
     driver = None
+    main_window = None
+    edit_dialog = None
     settings = load_settings()
     state = {"first_ok_done": False, "restore_verified": False}
     old_values: dict = {}
@@ -516,14 +359,17 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
         wait_until_app_ready(driver, settings)
         _log_phase("ready initial")
 
-        _navigate_to_stores(driver, settings)
+        main_window = MainWindow(driver)
+        edit_dialog = EditRecordDialog(driver, DIALOG_XPATH)
+
+        _navigate_to_stores(driver, settings, main_window)
         _log_phase("Stores-Navigation + Nachweis")
-        _advance_pages(driver)
+        _advance_pages(driver, main_window)
 
         # Erstes Oeffnen: alte Werte lesen und sofort ausgeben.
-        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 1")
-        old_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
-        old_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 1")
+        old_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
+        old_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
         old_values["phone"] = old_phone
         old_values["city"] = old_city
         print(
@@ -548,20 +394,28 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
 
         # Neue Werte setzen, direkt verifizieren, speichern.
-        _set_field_value_and_verify(driver, dialog, PHONE_FIELD_XPATH, NEW_PHONE)
-        _set_field_value_and_verify(driver, dialog, CITY_FIELD_XPATH, NEW_CITY)
+        edit_dialog.set_field_value_and_verify(PHONE_FIELD_XPATH, NEW_PHONE)
+        edit_dialog.set_field_value_and_verify(CITY_FIELD_XPATH, NEW_CITY)
         _shift_focus_with_tab(driver)
-        ok_button = _wait_ok_enabled(driver, dialog)
+        try:
+            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
+        except AssertionError as error:
+            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_disabled")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         _log_phase("Neue Werte setzen + OK enabled")
         state["first_ok_done"] = True
-        _invoke_ok_and_wait_closed(driver, ok_button)
+        try:
+            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
+        except AssertionError as error:
+            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         print(f"Neue Werte gespeichert: Phone={NEW_PHONE!r}, City={NEW_CITY!r}")
         _log_phase("OK speichern + Dialog zu")
 
         # Zweites Oeffnen: Speicherung nachweisen.
-        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 2")
-        saved_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
-        saved_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
+        saved_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
+        saved_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
         print(f"Nach dem Speichern: Phone={saved_phone!r}, City={saved_city!r}")
         _log_phase("Speicherung pruefen")
         if saved_phone != NEW_PHONE or saved_city != NEW_CITY:
@@ -574,19 +428,27 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
 
         # Alte Werte wiederherstellen und speichern.
-        _set_field_value_and_verify(driver, dialog, PHONE_FIELD_XPATH, old_phone)
-        _set_field_value_and_verify(driver, dialog, CITY_FIELD_XPATH, old_city)
+        edit_dialog.set_field_value_and_verify(PHONE_FIELD_XPATH, old_phone)
+        edit_dialog.set_field_value_and_verify(CITY_FIELD_XPATH, old_city)
         _shift_focus_with_tab(driver)
-        ok_button = _wait_ok_enabled(driver, dialog)
+        try:
+            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
+        except AssertionError as error:
+            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_disabled")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         _log_phase("Alte Werte setzen + OK enabled")
-        _invoke_ok_and_wait_closed(driver, ok_button)
+        try:
+            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
+        except AssertionError as error:
+            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         print(f"Wiederherstellung gespeichert: Phone={old_phone!r}, City={old_city!r}")
         _log_phase("OK Wiederherstellung + Dialog zu")
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
-        dialog = _open_edit_dialog_for_target_row(driver, "Oeffnen 3")
-        restored_phone = _get_field_value(driver, dialog, PHONE_FIELD_XPATH)
-        restored_city = _get_field_value(driver, dialog, CITY_FIELD_XPATH)
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
+        restored_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
+        restored_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
         print(
             f"Nach der Wiederherstellung: Phone={restored_phone!r}, "
             f"City={restored_city!r}"
@@ -604,7 +466,11 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
         state["restore_verified"] = True
 
-        _close_dialog_via_cancel(driver)
+        try:
+            edit_dialog.close_via_cancel(CLICK_RETRY_ATTEMPTS, DIALOG_CLOSE_TIMEOUT_SECONDS)
+        except AssertionError as error:
+            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_cancel_failure")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         _log_phase("Cancel + Dialog zu")
         print(
             f"Wiederherstellung verifiziert: {TARGET_ACCOUNT_NUMBER} steht "
@@ -613,9 +479,10 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
 
     finally:
         if driver is not None:
-            _close_dialog_best_effort(driver)
-            if state["first_ok_done"] and not state["restore_verified"]:
-                _restore_once_best_effort(driver, settings, old_values)
+            if edit_dialog is not None:
+                edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
+                if state["first_ok_done"] and not state["restore_verified"]:
+                    _restore_once_best_effort(driver, settings, main_window, edit_dialog, old_values)
             try:
                 driver.quit()
             except Exception:
