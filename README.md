@@ -93,6 +93,8 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `driver_factory.py`: baut die Appium-WebDriver-Session auf
   - `ui_waits.py`: Wait-Helper, u. a. für Splash-Screens und Ladezustände
   - `process_cleanup.py`: beendet die Zielanwendung nach einem Testlauf
+  - `pages/`: Fachobjekte für die UI (`MainWindow`, `EditRecordDialog`), kapseln wiederverwendete Locatoren und Interaktionsmuster
+  - `polling.py`: generischer Polling-Helfer (`wait_until_true`), von Fachobjekten und Tests genutzt
 - `tests/`: pytest-Testsuite
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
 - `artifacts/`: lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps; der Inhalt ist bis auf `.gitkeep` gitignored und damit nicht Teil des Repository-Inhalts
