@@ -8,6 +8,7 @@ from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
+from appium_novawindows_poc.pages import MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
@@ -82,31 +83,22 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
             1 for _ in ElementTree.fromstring(ready_page_source).iter("Window")
         )
 
-        edit_button = driver.find_element("accessibility id", "Edit")
+        main_window = MainWindow(driver)
+
+        edit_button = main_window.edit_button()
         assert not edit_button.is_enabled(), (
             "Edit-Button war ohne Zeilenauswahl bereits enabled - "
             "widerspricht Katalog Abschnitt 9, bitte Vorbedingung pruefen."
         )
 
-        grid = driver.find_element("accessibility id", "gridView")
+        grid = main_window.grid()
         first_row = grid.find_element("xpath", ".//DataItem[1]")
         # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
         # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
         inner_data_item = first_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
         driver.execute_script("windows: select", inner_data_item)
 
-        def edit_button_is_enabled() -> bool:
-            # Stale-Element-Vermeidung: Button in jeder Poll-Iteration neu suchen.
-            return driver.find_element("accessibility id", "Edit").is_enabled()
-
-        wait_until_true(
-            edit_button_is_enabled,
-            EDIT_ENABLED_TIMEOUT_SECONDS,
-            "Edit-Button wurde nach Selektion von DataItem[1] nicht enabled - "
-            "Zeilenauswahl vermutlich nicht wirksam (Katalog 13.7).",
-        )
-
-        edit_button = driver.find_element("accessibility id", "Edit")
+        edit_button = main_window.wait_edit_button_enabled(EDIT_ENABLED_TIMEOUT_SECONDS)
         driver.execute_script("windows: invoke", edit_button)
 
         last_page_source = {"xml": ""}
