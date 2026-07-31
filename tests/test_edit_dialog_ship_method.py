@@ -20,7 +20,7 @@ EDIT_DIALOG_OPEN_TIMEOUT_SECONDS = 5
 SHIP_METHOD_OPTION_TIMEOUT_SECONDS = 5
 OK_ENABLED_TIMEOUT_SECONDS = 5
 CLICK_RETRY_ATTEMPTS = 3
-CLICK_RETRY_DELAY_SECONDS = 2
+DIALOG_CLOSE_TIMEOUT_SECONDS = 5
 
 DIALOG_XPATH = "//Window[@Name='Edit Sales Order']"
 SHIP_METHOD_COMBO_XPATH = ".//ComboBox[@Name='ShipMethodID']"
@@ -188,10 +188,10 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         )
         assert next_page_button.is_enabled()
         click_timestamp = time.monotonic()
-        next_page_button.click()
+        driver.execute_script("windows: invoke", next_page_button)
         wait_until_app_ready(driver, settings)
         print(
-            f"Seite 1 -> 2: Next-Klick + wait_until_app_ready dauerte "
+            f"Seite 1 -> 2: Next-Invoke + wait_until_app_ready dauerte "
             f"{time.monotonic() - click_timestamp:.2f}s"
         )
 
@@ -204,14 +204,14 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         )
 
         if not previous_page_button.is_enabled():
-            print("\nErster Next-Klick ohne Wirkung, zweiter Klick mit frisch gesuchtem Button.")
+            print("\nErster Next-Invoke ohne Wirkung, zweiter Invoke mit frisch gesuchtem Button.")
 
             next_page_button = driver.find_element(
                 "accessibility id", "MoveToNextPageButton"
             )
             assert next_page_button.is_enabled()
 
-            next_page_button.click()
+            driver.execute_script("windows: invoke", next_page_button)
             wait_until_app_ready(driver, settings)
 
             previous_page_button = driver.find_element(
@@ -264,22 +264,22 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             try:
                 current_edit_button = driver.find_element("accessibility id", "Edit")
                 assert current_edit_button.is_enabled(), (
-                    f"Edit-Button war vor Klickversuch {attempt} nicht enabled - "
+                    f"Edit-Button war vor Invoke-Versuch {attempt} nicht enabled - "
                     "unerwarteter Zustandswechsel zwischen den Versuchen."
                 )
 
-                current_edit_button.click()
+                driver.execute_script("windows: invoke", current_edit_button)
                 click_timestamp = time.monotonic()
 
                 wait_until_true(
                     dialog_present,
                     EDIT_DIALOG_OPEN_TIMEOUT_SECONDS,
-                    f"Edit-Dialog ({DIALOG_XPATH}) ist nach Klickversuch "
+                    f"Edit-Dialog ({DIALOG_XPATH}) ist nach Invoke-Versuch "
                     f"{attempt} nicht innerhalb von "
                     f"{EDIT_DIALOG_OPEN_TIMEOUT_SECONDS}s erschienen.",
                 )
                 print(
-                    f"Edit-Dialog erschien nach Klickversuch {attempt} nach "
+                    f"Edit-Dialog erschien nach Invoke-Versuch {attempt} nach "
                     f"{time.monotonic() - click_timestamp:.2f}s Wartezeit."
                 )
 
@@ -295,7 +295,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             error_suffix = f" Letzter Fehler: {last_error}." if last_error else ""
             raise AssertionError(
                 f"Edit-Dialog ({DIALOG_XPATH}) wurde nach {CLICK_RETRY_ATTEMPTS} "
-                f"Edit-Klick-Versuchen nicht eindeutig im UIA-Tree gefunden."
+                f"Edit-Invoke-Versuchen nicht eindeutig im UIA-Tree gefunden."
                 f"{error_suffix} Diagnose-Dump: {artifact_path}"
             )
 
@@ -370,21 +370,32 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
 
         dialog_was_closed = False
         for attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
-            current_dialog = driver.find_element("xpath", DIALOG_XPATH)
-            current_cancel_button = current_dialog.find_element(
+            # Dialog kann nach einem vorigen Invoke bereits geschlossen sein.
+            remaining_dialogs = driver.find_elements("xpath", DIALOG_XPATH)
+            if not remaining_dialogs:
+                dialog_was_closed = True
+                break
+
+            current_cancel_button = remaining_dialogs[0].find_element(
                 "xpath", ".//Button[@AutomationId='PART_CancelButton']"
             )
             assert current_cancel_button.is_enabled(), (
-                f"Cancel-Button war vor Klickversuch {attempt} nicht enabled - "
+                f"Cancel-Button war vor Invoke-Versuch {attempt} nicht enabled - "
                 "unerwarteter Zustandswechsel zwischen den Versuchen."
             )
 
-            current_cancel_button.click()
-            time.sleep(CLICK_RETRY_DELAY_SECONDS)
+            driver.execute_script("windows: invoke", current_cancel_button)
 
-            if dialog_closed():
+            try:
+                wait_until_true(
+                    dialog_closed,
+                    DIALOG_CLOSE_TIMEOUT_SECONDS,
+                    "Edit-Dialog wurde nach Cancel-Invoke nicht geschlossen.",
+                )
                 dialog_was_closed = True
                 break
+            except AssertionError:
+                pass
 
         if not dialog_was_closed:
             artifact_path = _write_diagnostic_artifact(
@@ -392,7 +403,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             )
             raise AssertionError(
                 f"Edit-Dialog ({DIALOG_XPATH}) ist nach {CLICK_RETRY_ATTEMPTS} "
-                "Cancel-Klick-Versuchen nicht verschwunden - moeglicherweise "
+                "Cancel-Invoke-Versuchen nicht verschwunden - moeglicherweise "
                 "erscheint ein Bestaetigungsdialog. Kein automatischer "
                 "OK/Yes-Klick, um keine Datenaenderung zu riskieren. "
                 f"Diagnose-Dump: {artifact_path}"
@@ -408,9 +419,10 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             try:
                 remaining_dialogs = driver.find_elements("xpath", DIALOG_XPATH)
                 if remaining_dialogs:
-                    remaining_dialogs[0].find_element(
+                    cleanup_cancel_button = remaining_dialogs[0].find_element(
                         "xpath", ".//Button[@AutomationId='PART_CancelButton']"
-                    ).click()
+                    )
+                    driver.execute_script("windows: invoke", cleanup_cancel_button)
             except Exception:
                 pass
 
