@@ -1,5 +1,4 @@
 import time
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +6,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
+from appium_novawindows_poc.components.rad_combo_box import RadComboBox
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
@@ -23,6 +23,7 @@ CLICK_RETRY_ATTEMPTS = 3
 CLICK_RETRY_DELAY_SECONDS = 2
 
 DIALOG_XPATH = "//Window[@Name='Edit Sales Order']"
+SHIP_METHOD_COMBO_XPATH = ".//ComboBox[@Name='ShipMethodID']"
 
 # Doppel-Anker zur eindeutigen Zeilenidentifikation (Account Number allein
 # kann im Grid mehrfach vorkommen, siehe Ruecksprache mit dem Auftraggeber) -
@@ -34,10 +35,6 @@ TARGET_ACCOUNT_NUMBER_ANCHOR = "10-4030-016348"
 TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
 
 _CALL_COUNTS = {"read_grid_cell_text": 0, "page_source": 0}
-
-
-class DropdownOpenDumpError(RuntimeError):
-    pass
 
 
 def _install_page_source_counter(driver):
@@ -76,21 +73,6 @@ def _read_field_value_best_effort(element) -> str | None:
                 return value
         except Exception:
             pass
-
-    return None
-
-
-def _read_combo_selected_item(combo_element) -> str | None:
-    try:
-        item_status = combo_element.get_attribute("ItemStatus")
-        if not item_status:
-            return None
-        status_root = ET.fromstring(item_status)
-        for prop in status_root.iter("Property"):
-            if prop.get("Name") == "SelectedItem":
-                return prop.get("Value")
-    except Exception:
-        pass
 
     return None
 
@@ -317,131 +299,20 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 f"{error_suffix} Diagnose-Dump: {artifact_path}"
             )
 
-        dialog = driver.find_element("xpath", DIALOG_XPATH)
-
-        ship_method_combo = dialog.find_element(
-            "xpath", ".//ComboBox[@Name='ShipMethodID']"
+        ship_method_combo = RadComboBox(
+            driver,
+            lambda: driver.find_element("xpath", DIALOG_XPATH),
+            SHIP_METHOD_COMBO_XPATH,
         )
-        ship_method_before = _read_combo_selected_item(ship_method_combo)
+        ship_method_before = ship_method_combo.read_selected_item()
 
-        def ship_method_option_present() -> bool:
-            current_dialog = driver.find_element("xpath", DIALOG_XPATH)
-            return (
-                len(
-                    current_dialog.find_elements(
-                        "xpath", f".//*[@Name='{TARGET_SHIP_METHOD_OPTION}']"
-                    )
-                )
-                >= 1
+        try:
+            ship_method_combo.select_option_and_verify(
+                TARGET_SHIP_METHOD_OPTION,
+                SHIP_METHOD_OPTION_TIMEOUT_SECONDS,
+                CLICK_RETRY_ATTEMPTS,
             )
-
-        def ship_method_selected() -> bool:
-            # Wirkungsnachweis ueber die echte WPF-Selektion (ItemStatus),
-            # nicht ueber Element-Praesenz im Dropdown - Praesenz allein hat
-            # den urspruenglichen Bug nicht aufgedeckt.
-            current_dialog = driver.find_element("xpath", DIALOG_XPATH)
-            current_combo = current_dialog.find_element(
-                "xpath", ".//ComboBox[@Name='ShipMethodID']"
-            )
-            return _read_combo_selected_item(current_combo) == TARGET_SHIP_METHOD_OPTION
-
-        ship_method_changed = False
-        last_error: Exception | None = None
-        dropdown_open_dump_written = False
-        for attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
-            try:
-                current_dialog = driver.find_element("xpath", DIALOG_XPATH)
-                current_combo = current_dialog.find_element(
-                    "xpath", ".//ComboBox[@Name='ShipMethodID']"
-                )
-                combo_open_start = time.monotonic()
-                current_combo.click()
-                print(
-                    f"ComboBox-Klick (oeffnen) dauerte "
-                    f"{time.monotonic() - combo_open_start:.3f}s"
-                )
-
-                option_search_start = time.monotonic()
-                wait_until_true(
-                    ship_method_option_present,
-                    SHIP_METHOD_OPTION_TIMEOUT_SECONDS,
-                    f"Dropdown-Eintrag {TARGET_SHIP_METHOD_OPTION!r} der "
-                    "Ship-Method-ComboBox ist nach dem Oeffnen nicht im "
-                    "UIA-Tree erschienen.",
-                )
-                print(
-                    f"Option suchen dauerte "
-                    f"{time.monotonic() - option_search_start:.2f}s"
-                )
-
-                if not dropdown_open_dump_written:
-                    dropdown_open_artifact = _write_diagnostic_artifact(
-                        driver,
-                        "erp_ship_method_dropdown_open",
-                    )
-
-                    if not dropdown_open_artifact.exists():
-                        raise DropdownOpenDumpError(
-                            f"Dropdown-Open-Dump wurde nicht erzeugt: "
-                            f"{dropdown_open_artifact}"
-                        )
-                    if dropdown_open_artifact.stat().st_size == 0:
-                        raise DropdownOpenDumpError(
-                            f"Dropdown-Open-Dump ist leer: {dropdown_open_artifact}"
-                        )
-
-                    dropdown_xml = dropdown_open_artifact.read_text(encoding="utf-8")
-                    if TARGET_SHIP_METHOD_OPTION not in dropdown_xml:
-                        raise DropdownOpenDumpError(
-                            f"Der offene Dropdown-Dump enthaelt "
-                            f"{TARGET_SHIP_METHOD_OPTION!r} nicht: "
-                            f"{dropdown_open_artifact}"
-                        )
-
-                    dropdown_open_dump_written = True
-                    print(f"Dropdown-Open-Dump: {dropdown_open_artifact}")
-
-                current_dialog = driver.find_element("xpath", DIALOG_XPATH)
-                current_combo = current_dialog.find_element(
-                    "xpath", ".//ComboBox[@Name='ShipMethodID']"
-                )
-                option_locator = (
-                    ".//ListItem[@ClassName='RadComboBoxItem']"
-                    f"[@Name='{TARGET_SHIP_METHOD_OPTION}']"
-                )
-                ship_method_option_items = current_combo.find_elements(
-                    "xpath", option_locator
-                )
-                assert len(ship_method_option_items) == 1, (
-                    f"Erwartet genau ein RadComboBoxItem fuer "
-                    f"{TARGET_SHIP_METHOD_OPTION!r} innerhalb der ComboBox, "
-                    f"gefunden: {len(ship_method_option_items)}."
-                )
-
-                option_select_start = time.monotonic()
-                driver.execute_script(
-                    "windows: select", ship_method_option_items[0]
-                )
-                print(
-                    f"Option selektieren (windows: select) dauerte "
-                    f"{time.monotonic() - option_select_start:.3f}s"
-                )
-
-                wait_until_true(
-                    ship_method_selected,
-                    SHIP_METHOD_OPTION_TIMEOUT_SECONDS,
-                    f"Ship Method wurde ueber windows: select nicht auf "
-                    f"{TARGET_SHIP_METHOD_OPTION!r} gesetzt.",
-                )
-
-                ship_method_changed = True
-                break
-            except DropdownOpenDumpError:
-                raise
-            except Exception as error:
-                last_error = error
-
-        if not ship_method_changed:
+        except AssertionError as error:
             try:
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
             except Exception:
@@ -449,13 +320,9 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             artifact_path = _write_diagnostic_artifact(
                 driver, "erp_ship_method_dropdown_failure"
             )
-            error_suffix = f" Letzter Fehler: {last_error}." if last_error else ""
             raise AssertionError(
-                f"Ship-Method-Option {TARGET_SHIP_METHOD_OPTION!r} wurde nach "
-                f"{CLICK_RETRY_ATTEMPTS} Versuchen laut ComboBox-ItemStatus "
-                f"(SelectedItem) nicht uebernommen.{error_suffix} "
-                f"Diagnose-Dump: {artifact_path}"
-            )
+                f"{error} Diagnose-Dump: {artifact_path}"
+            ) from error
 
         ActionChains(driver).send_keys(Keys.TAB).perform()
 
@@ -491,10 +358,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             "enabled - Wirkungsnachweis fehlgeschlagen."
         )
 
-        ship_method_combo = dialog.find_element(
-            "xpath", ".//ComboBox[@Name='ShipMethodID']"
-        )
-        ship_method_after = _read_combo_selected_item(ship_method_combo)
+        ship_method_after = ship_method_combo.read_selected_item()
         print(
             f"\nShip Method vorher: {ship_method_before!r}, "
             f"Zielwert: {TARGET_SHIP_METHOD_OPTION!r}, "
