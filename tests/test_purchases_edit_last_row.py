@@ -11,6 +11,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
+from appium_novawindows_poc.components.rad_combo_box import RadComboBox
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
@@ -403,89 +404,36 @@ def _read_combo_selected_item(combo_element) -> str | None:
     return None
 
 
-def _get_combo_value(dialog, combo_xpath: str) -> str | None:
-    return _read_combo_selected_item(dialog.find_element("xpath", combo_xpath))
-
-
 def _combo_option_xpath(option_name: str) -> str:
     return f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
 
 
-def _select_combo_option_and_verify(
-    driver, dialog, combo_xpath: str, option_name: str, field_label: str
+def _select_combo_option_with_dump(
+    driver, combo: RadComboBox, option_name: str, artifact_prefix: str
 ) -> None:
-    # Combo und Option werden vor jeder Aktion frisch relativ zum Dialog
-    # gesucht; die teure Root-Suche nach dem Dialog nur einmal pro Retry.
-    def find_combo():
-        return dialog.find_element("xpath", combo_xpath)
-
-    def option_selected() -> bool:
-        try:
-            return _read_combo_selected_item(find_combo()) == option_name
-        except Exception:
-            return False
-
-    def exactly_one_option_present() -> bool:
-        try:
-            options = find_combo().find_elements(
-                "xpath", _combo_option_xpath(option_name)
-            )
-        except Exception:
-            return False
-        return len(options) == 1
-
-    last_error: Exception | None = None
-    for _attempt in range(1, CLICK_RETRY_ATTEMPTS + 1):
-        try:
-            if _attempt > 1:
-                dialog = driver.find_element("xpath", DIALOG_XPATH)
-            already_selected = option_selected()
-            _log_phase(f"{field_label}-Combo: Vorabpruefung")
-            if already_selected:
-                return
-            if _attempt < CLICK_RETRY_ATTEMPTS:
-                driver.execute_script("windows: expand", find_combo())
-            else:
-                print(f"{field_label}-Combo: letzter Versuch oeffnet per Mausklick.")
-                find_combo().click()
-            _log_phase(f"{field_label}-Combo: oeffnen")
-            wait_until_true(
-                exactly_one_option_present, COMBO_OPTION_TIMEOUT_SECONDS, "timeout"
-            )
-            _log_phase(f"{field_label}-Combo: Option sichtbar")
-            option_item = find_combo().find_element(
-                "xpath", _combo_option_xpath(option_name)
-            )
-            driver.execute_script("windows: select", option_item)
-            _log_phase(f"{field_label}-Combo: Option selektiert")
-            wait_until_true(
-                option_selected, COMBO_OPTION_TIMEOUT_SECONDS, "timeout"
-            )
-            _log_phase(f"{field_label}-Combo: Selektion verifiziert")
-            return
-        except Exception as error:
-            last_error = error
-
     try:
-        ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-    except Exception:
-        pass
-    _fail_with_dump(
-        driver,
-        "erp_purchases_combo_failure",
-        f"{field_label}-Option {option_name!r} wurde nach "
-        f"{CLICK_RETRY_ATTEMPTS} Versuchen laut ItemStatus/SelectedItem nicht "
-        f"uebernommen (letzter Fehler: {last_error}).",
+        combo.select_option_and_verify(
+            option_name, COMBO_OPTION_TIMEOUT_SECONDS, CLICK_RETRY_ATTEMPTS
+        )
+    except AssertionError as error:
+        try:
+            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+        except Exception:
+            pass
+        artifact_path = _write_diagnostic_artifact(driver, artifact_prefix)
+        raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
+
+
+def _read_all_field_values(driver, edit_dialog: EditRecordDialog) -> dict:
+    vendor_combo = RadComboBox(driver, edit_dialog.element, VENDOR_COMBO_XPATH)
+    order_status_combo = RadComboBox(
+        driver, edit_dialog.element, ORDER_STATUS_COMBO_XPATH
     )
-
-
-def _read_all_field_values(edit_dialog: EditRecordDialog) -> dict:
-    dialog = edit_dialog.element()
     return {
         "order_date": edit_dialog.get_field_value(ORDER_DATE_FIELD_XPATH),
         "ship_date": edit_dialog.get_field_value(SHIP_DATE_FIELD_XPATH),
-        "vendor": _get_combo_value(dialog, VENDOR_COMBO_XPATH),
-        "order_status": _get_combo_value(dialog, ORDER_STATUS_COMBO_XPATH),
+        "vendor": vendor_combo.read_selected_item(),
+        "order_status": order_status_combo.read_selected_item(),
     }
 
 
@@ -500,14 +448,25 @@ def _set_all_fields_and_verify(
         SHIP_DATE_FIELD_XPATH, values["ship_date"]
     )
     _log_phase(f"{phase_label}: Ship Date setzen")
-    dialog = edit_dialog.element()
-    _select_combo_option_and_verify(
-        driver, dialog, VENDOR_COMBO_XPATH, values["vendor"], "Vendor"
+
+    vendor_combo = RadComboBox(driver, edit_dialog.element, VENDOR_COMBO_XPATH)
+    if vendor_combo.read_selected_item() != values["vendor"]:
+        _select_combo_option_with_dump(
+            driver, vendor_combo, values["vendor"], "erp_purchases_vendor_combo_failure"
+        )
+    _log_phase(f"{phase_label}: Vendor-Combo")
+
+    order_status_combo = RadComboBox(
+        driver, edit_dialog.element, ORDER_STATUS_COMBO_XPATH
     )
-    _select_combo_option_and_verify(
-        driver, dialog, ORDER_STATUS_COMBO_XPATH, values["order_status"],
-        "Order Status"
-    )
+    if order_status_combo.read_selected_item() != values["order_status"]:
+        _select_combo_option_with_dump(
+            driver,
+            order_status_combo,
+            values["order_status"],
+            "erp_purchases_order_status_combo_failure",
+        )
+    _log_phase(f"{phase_label}: Order-Status-Combo")
 
 
 def _shift_focus_with_tab(driver) -> None:
@@ -630,7 +589,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         _open_edit_dialog_for_target_row(
             driver, main_window, edit_dialog, "Oeffnen 1", verify_order_details=True
         )
-        old_values.update(_read_all_field_values(edit_dialog))
+        old_values.update(_read_all_field_values(driver, edit_dialog))
         print(f"\nAlte Werte ({ROW_LABEL}): {_format_values(old_values)}")
         _log_phase("Alte Werte lesen")
 
@@ -678,7 +637,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
 
         # Zweites Oeffnen: Speicherung nachweisen.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
-        saved_values = _read_all_field_values(edit_dialog)
+        saved_values = _read_all_field_values(driver, edit_dialog)
         print(f"Nach dem Speichern: {_format_values(saved_values)}")
         _log_phase("Speicherung pruefen")
         if saved_values != NEW_VALUES:
@@ -709,7 +668,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
-        restored_values = _read_all_field_values(edit_dialog)
+        restored_values = _read_all_field_values(driver, edit_dialog)
         print(f"Nach der Wiederherstellung: {_format_values(restored_values)}")
         _log_phase("Wiederherstellung pruefen")
         if restored_values != old_values:
