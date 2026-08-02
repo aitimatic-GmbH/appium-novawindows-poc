@@ -96,7 +96,8 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
             edit_button_is_enabled,
             EDIT_ENABLED_TIMEOUT_SECONDS,
             "Edit-Button wurde nach Klick auf DataItem[1] nicht enabled - "
-            "Zeilenauswahl vermutlich nicht wirksam (Katalog 13.7).",
+            "Zeilenauswahl vermutlich nicht wirksam oder Klick hat die "
+            "Zeile verfehlt (Katalog 13.7).",
         )
 
         driver.find_element("accessibility id", "Edit").click()
