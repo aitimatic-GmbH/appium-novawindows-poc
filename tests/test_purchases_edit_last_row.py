@@ -11,7 +11,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
-from appium_novawindows_poc.components.rad_combo_box import RadComboBox
+from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
@@ -19,6 +19,7 @@ from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._waits import wait_until_true
+from tests.support.purchase_order_edit_fields import PurchaseOrderEditFields
 
 PURCHASES_VIEW_TIMEOUT_SECONDS = 15
 PAGE_JUMP_TIMEOUT_SECONDS = 30
@@ -39,18 +40,18 @@ ROW_LABEL = f"letzte Zeile Seite {EXPECTED_LAST_PAGE} ({TARGET_ROW_AUTOMATION_ID
 
 # Testwerte und Discovery-Ausgangswerte; Datumsformat wie im Dialogfeld
 # (Tag.Monat.Jahr mit Punkten, das Grid zeigt dagegen Schraegstriche).
-NEW_VALUES = {
-    "order_date": "12.11.2007",
-    "ship_date": "21.11.2007",
-    "vendor": "Advanced Bicycles",
-    "order_status": "Rejected",
-}
-EXPECTED_OLD_VALUES = {
-    "order_date": "11.11.2007",
-    "ship_date": "20.11.2007",
-    "vendor": "Mitchell Sports",
-    "order_status": "Complete",
-}
+NEW_VALUES = PurchaseOrderEditFields(
+    order_date="12.11.2007",
+    ship_date="21.11.2007",
+    vendor="Advanced Bicycles",
+    order_status="Rejected",
+)
+EXPECTED_OLD_VALUES = PurchaseOrderEditFields(
+    order_date="11.11.2007",
+    ship_date="20.11.2007",
+    vendor="Mitchell Sports",
+    order_status="Complete",
+)
 
 PURCHASES_TREE_ITEM_XPATH = (
     ".//TreeItem[@ClassName='RadTreeViewItem'][@Name='Purchases']"
@@ -111,15 +112,6 @@ def _write_diagnostic_artifact(driver, prefix: str) -> Path:
 def _fail_with_dump(driver, prefix: str, message: str) -> None:
     artifact_path = _write_diagnostic_artifact(driver, prefix)
     pytest.fail(f"{message} Diagnose-Dump: {artifact_path}")
-
-
-def _format_values(values: dict) -> str:
-    return (
-        f"Order Date={values.get('order_date')!r}, "
-        f"Ship Date={values.get('ship_date')!r}, "
-        f"Vendor={values.get('vendor')!r}, "
-        f"Order Status={values.get('order_status')!r}"
-    )
 
 
 def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
@@ -279,13 +271,6 @@ def _find_target_row(driver, main_window: MainWindow):
     return found["row"]
 
 
-def _select_target_row(driver, target_row) -> None:
-    # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
-    # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
-    inner_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
-    driver.execute_script("windows: select", inner_item)
-
-
 def _read_text_best_effort(element) -> str | None:
     try:
         value = element.text
@@ -330,7 +315,9 @@ def _verify_order_details(driver, main_window: MainWindow) -> None:
                     "Order-Details-Nachweis ohne Treffer "
                     f"(zuletzt {found['count']}), Selektions-Retry."
                 )
-                _select_target_row(driver, _find_target_row(driver, main_window))
+                select_row_via_inner_data_item(
+                    driver, _find_target_row(driver, main_window), INNER_DATA_ITEM_XPATH
+                )
             else:
                 _fail_with_dump(
                     driver,
@@ -370,7 +357,7 @@ def _open_edit_dialog_for_target_row(
     # übernimmt EditRecordDialog.open_via_edit_button.
     target_row = _find_target_row(driver, main_window)
     _log_phase(f"{phase_label}: Zielzeile finden")
-    _select_target_row(driver, target_row)
+    select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
     if verify_order_details:
         _verify_order_details(driver, main_window)
         _log_phase(f"{phase_label}: Order-Details-Nachweis")
@@ -408,12 +395,18 @@ def _combo_option_xpath(option_name: str) -> str:
     return f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
 
 
-def _select_combo_option_with_dump(
-    driver, combo: RadComboBox, option_name: str, artifact_prefix: str
+def _write_values_with_dump(
+    driver,
+    edit_dialog: EditRecordDialog,
+    values: PurchaseOrderEditFields,
+    phase_label: str,
+    artifact_prefix: str,
 ) -> None:
+    # ESCAPE-Cleanup und Diagnose-Dump bleiben wie zuvor erhalten, jetzt um
+    # den gesamten Schreibvorgang statt um jede einzelne Combo-Auswahl.
     try:
-        combo.select_option_and_verify(
-            option_name, COMBO_OPTION_TIMEOUT_SECONDS, CLICK_RETRY_ATTEMPTS
+        values.write_to(
+            driver, edit_dialog, COMBO_OPTION_TIMEOUT_SECONDS, CLICK_RETRY_ATTEMPTS
         )
     except AssertionError as error:
         try:
@@ -422,51 +415,7 @@ def _select_combo_option_with_dump(
             pass
         artifact_path = _write_diagnostic_artifact(driver, artifact_prefix)
         raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-
-
-def _read_all_field_values(driver, edit_dialog: EditRecordDialog) -> dict:
-    vendor_combo = RadComboBox(driver, edit_dialog.element, VENDOR_COMBO_XPATH)
-    order_status_combo = RadComboBox(
-        driver, edit_dialog.element, ORDER_STATUS_COMBO_XPATH
-    )
-    return {
-        "order_date": edit_dialog.get_field_value(ORDER_DATE_FIELD_XPATH),
-        "ship_date": edit_dialog.get_field_value(SHIP_DATE_FIELD_XPATH),
-        "vendor": vendor_combo.read_selected_item(),
-        "order_status": order_status_combo.read_selected_item(),
-    }
-
-
-def _set_all_fields_and_verify(
-    driver, edit_dialog: EditRecordDialog, values: dict, phase_label: str
-) -> None:
-    edit_dialog.set_field_value_and_verify(
-        ORDER_DATE_FIELD_XPATH, values["order_date"]
-    )
-    _log_phase(f"{phase_label}: Order Date setzen")
-    edit_dialog.set_field_value_and_verify(
-        SHIP_DATE_FIELD_XPATH, values["ship_date"]
-    )
-    _log_phase(f"{phase_label}: Ship Date setzen")
-
-    vendor_combo = RadComboBox(driver, edit_dialog.element, VENDOR_COMBO_XPATH)
-    if vendor_combo.read_selected_item() != values["vendor"]:
-        _select_combo_option_with_dump(
-            driver, vendor_combo, values["vendor"], "erp_purchases_vendor_combo_failure"
-        )
-    _log_phase(f"{phase_label}: Vendor-Combo")
-
-    order_status_combo = RadComboBox(
-        driver, edit_dialog.element, ORDER_STATUS_COMBO_XPATH
-    )
-    if order_status_combo.read_selected_item() != values["order_status"]:
-        _select_combo_option_with_dump(
-            driver,
-            order_status_combo,
-            values["order_status"],
-            "erp_purchases_order_status_combo_failure",
-        )
-    _log_phase(f"{phase_label}: Order-Status-Combo")
+    _log_phase(f"{phase_label}: Felder setzen")
 
 
 def _shift_focus_with_tab(driver) -> None:
@@ -503,35 +452,35 @@ def _restore_once_best_effort(
     settings,
     main_window: MainWindow,
     edit_dialog: EditRecordDialog,
-    old_values: dict,
+    old_values: PurchaseOrderEditFields,
 ) -> None:
     # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
     # Wiederherstellungsversuch, keine Retries.
     print(
         f"\nWARNUNG: Datensatz ({ROW_LABEL}) wurde geaendert und die "
         "Wiederherstellung ist NICHT verifiziert. "
-        f"Alte Werte: {_format_values(old_values)}; "
-        f"Testwerte: {_format_values(NEW_VALUES)}. "
+        f"Alte Werte: {old_values!r}; "
+        f"Testwerte: {NEW_VALUES!r}. "
         "Bitte den Datensatz manuell kontrollieren."
     )
     try:
         wait_until_app_ready(driver, settings)
         target_row = main_window.grid().find_element("xpath", TARGET_ROW_XPATH)
-        _select_target_row(driver, target_row)
+        select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
         wait_until_app_ready(driver, settings)
 
         # Nur EIN Versuch (retry_attempts=1) - dies ist bereits der Notfallpfad.
         edit_dialog.open_via_edit_button(main_window, 1, EDIT_ENABLED_TIMEOUT_SECONDS)
 
         for field_xpath, old_value in (
-            (ORDER_DATE_FIELD_XPATH, old_values.get("order_date")),
-            (SHIP_DATE_FIELD_XPATH, old_values.get("ship_date")),
+            (ORDER_DATE_FIELD_XPATH, old_values.order_date),
+            (SHIP_DATE_FIELD_XPATH, old_values.ship_date),
         ):
             if old_value:
                 edit_dialog.set_field_value_and_verify(field_xpath, old_value)
         for combo_xpath, old_value in (
-            (VENDOR_COMBO_XPATH, old_values.get("vendor")),
-            (ORDER_STATUS_COMBO_XPATH, old_values.get("order_status")),
+            (VENDOR_COMBO_XPATH, old_values.vendor),
+            (ORDER_STATUS_COMBO_XPATH, old_values.order_status),
         ):
             if old_value:
                 _restore_combo_single_attempt(
@@ -564,7 +513,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
     edit_dialog = None
     settings = load_settings()
     state = {"first_ok_done": False, "restore_verified": False}
-    old_values: dict = {}
+    old_values: PurchaseOrderEditFields | None = None
 
     try:
         _start_phase_clock()
@@ -589,36 +538,34 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         _open_edit_dialog_for_target_row(
             driver, main_window, edit_dialog, "Oeffnen 1", verify_order_details=True
         )
-        old_values.update(_read_all_field_values(driver, edit_dialog))
-        print(f"\nAlte Werte ({ROW_LABEL}): {_format_values(old_values)}")
+        old_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
+        print(f"\nAlte Werte ({ROW_LABEL}): {old_values!r}")
         _log_phase("Alte Werte lesen")
 
-        if (
-            not old_values["order_date"]
-            or not old_values["ship_date"]
-            or old_values["vendor"] is None
-            or old_values["order_status"] is None
-        ):
+        if old_values.has_missing_values():
             pytest.fail(
                 "Abbruch VOR jeder Aenderung: mindestens ein Ausgangswert ist "
-                f"nicht lesbar ({_format_values(old_values)}) - ohne "
+                f"nicht lesbar ({old_values!r}) - ohne "
                 "Ausgangswerte ist keine verifizierte Wiederherstellung moeglich."
             )
-        if any(old_values[key] == NEW_VALUES[key] for key in NEW_VALUES):
+        if old_values.shares_any_field_with(NEW_VALUES):
             pytest.fail(
                 f"Abbruch VOR jeder Aenderung: Datensatz ({ROW_LABEL}) enthaelt "
-                f"bereits Testwerte ({_format_values(old_values)}) - vermutlich "
+                f"bereits Testwerte ({old_values!r}) - vermutlich "
                 "Reste eines frueheren Laufs. Bitte manuell kontrollieren."
             )
         if old_values != EXPECTED_OLD_VALUES:
             print(
                 "Warnung: alte Werte weichen vom Discovery-Stand ab "
-                f"(erwartet {_format_values(EXPECTED_OLD_VALUES)}) - "
+                f"(erwartet {EXPECTED_OLD_VALUES!r}) - "
                 "wiederhergestellt werden die soeben gelesenen Werte."
             )
 
         # Neue Werte setzen, direkt verifizieren, speichern.
-        _set_all_fields_and_verify(driver, edit_dialog, NEW_VALUES, "Neue Werte")
+        _write_values_with_dump(
+            driver, edit_dialog, NEW_VALUES, "Neue Werte",
+            "erp_purchases_write_new_values_failure",
+        )
         _shift_focus_with_tab(driver)
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
@@ -632,25 +579,28 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         except AssertionError as error:
             artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Neue Werte gespeichert: {_format_values(NEW_VALUES)}")
+        print(f"Neue Werte gespeichert: {NEW_VALUES!r}")
         _log_phase("OK speichern + Dialog zu")
 
         # Zweites Oeffnen: Speicherung nachweisen.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
-        saved_values = _read_all_field_values(driver, edit_dialog)
-        print(f"Nach dem Speichern: {_format_values(saved_values)}")
+        saved_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
+        print(f"Nach dem Speichern: {saved_values!r}")
         _log_phase("Speicherung pruefen")
         if saved_values != NEW_VALUES:
             pytest.fail(
                 f"Speicherung nicht nachweisbar: erwartet "
-                f"{_format_values(NEW_VALUES)}, gelesen "
-                f"{_format_values(saved_values)}. Alte Werte waren "
-                f"{_format_values(old_values)}. Bitte den Datensatz "
+                f"{NEW_VALUES!r}, gelesen "
+                f"{saved_values!r}. Alte Werte waren "
+                f"{old_values!r}. Bitte den Datensatz "
                 f"({ROW_LABEL}) manuell kontrollieren."
             )
 
         # Alte Werte wiederherstellen und speichern.
-        _set_all_fields_and_verify(driver, edit_dialog, old_values, "Alte Werte")
+        _write_values_with_dump(
+            driver, edit_dialog, old_values, "Alte Werte",
+            "erp_purchases_write_old_values_failure",
+        )
         _shift_focus_with_tab(driver)
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
@@ -663,20 +613,20 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         except AssertionError as error:
             artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Wiederherstellung gespeichert: {_format_values(old_values)}")
+        print(f"Wiederherstellung gespeichert: {old_values!r}")
         _log_phase("OK Wiederherstellung + Dialog zu")
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
-        restored_values = _read_all_field_values(driver, edit_dialog)
-        print(f"Nach der Wiederherstellung: {_format_values(restored_values)}")
+        restored_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
+        print(f"Nach der Wiederherstellung: {restored_values!r}")
         _log_phase("Wiederherstellung pruefen")
         if restored_values != old_values:
             pytest.fail(
                 f"WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer den Datensatz "
-                f"({ROW_LABEL}): erwartet {_format_values(old_values)}, gelesen "
-                f"{_format_values(restored_values)}. Testwerte waren "
-                f"{_format_values(NEW_VALUES)}. Es werden keine weiteren "
+                f"({ROW_LABEL}): erwartet {old_values!r}, gelesen "
+                f"{restored_values!r}. Testwerte waren "
+                f"{NEW_VALUES!r}. Es werden keine weiteren "
                 "unbekannten Dialoge bestaetigt - bitte den Datensatz manuell "
                 "kontrollieren."
             )
@@ -690,7 +640,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         _log_phase("Cancel + Dialog zu")
         print(
             f"Wiederherstellung verifiziert: Datensatz ({ROW_LABEL}) steht "
-            f"wieder auf {_format_values(old_values)}."
+            f"wieder auf {old_values!r}."
         )
 
     finally:
