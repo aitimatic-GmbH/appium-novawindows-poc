@@ -98,8 +98,13 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `ui_waits.py`: Wait-Helper, u. a. für Splash-Screens und Ladezustände
   - `process_cleanup.py`: beendet die Zielanwendung nach einem Testlauf
   - `pages/`: Fachobjekte für die UI (`MainWindow`, `EditRecordDialog`), kapseln wiederverwendete Locatoren und Interaktionsmuster
+  - `components/`: wiederverwendbare technische UI-Automatisierungs-Bausteine, einschließlich `RadComboBox`, `select_row_via_inner_data_item` und `EditRecordDialogActions` (Schreiben/Speichern/Cancel im Edit-Dialog), keine Fachlichkeit
+  - `business/`: anwendungsspezifische Wertobjekte für fachlich zusammengehörige Editierfelder (`StoreContactDetails`, `PurchaseOrderEditFields`)
   - `polling.py`: generischer Polling-Helfer (`wait_until_true`), von Fachobjekten und Tests genutzt
+  - `diagnostics.py`: technische Diagnose-Helfer (Phasen-Zeitmessung, XML-Dump-Artefakte, Fokuswechsel), pytest-unabhängig
 - `tests/`: pytest-Testsuite
+  - `_waits.py`: dünner Re-Export von `appium_novawindows_poc.polling.wait_until_true`
+  - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump`
 - `docs/`: Projektdokumentation
   - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
   - `ERP.Client_locator_candidates.md`, `ERP.Client_edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
