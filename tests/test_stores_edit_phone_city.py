@@ -10,6 +10,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
+from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
@@ -17,6 +18,7 @@ from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._waits import wait_until_true
+from tests.support.store_contact_details import StoreContactDetails
 
 PAGES_FORWARD = 4
 STORES_VIEW_TIMEOUT_SECONDS = 15
@@ -29,10 +31,8 @@ CLICK_RETRY_ATTEMPTS = 3
 
 TARGET_ACCOUNT_NUMBER = "AW00000254"
 TARGET_COMPANY_NAME = "Safe Cycles Shop"
-NEW_PHONE = "999-555-0100"
-NEW_CITY = "Teststadt"
-EXPECTED_OLD_PHONE = "449-555-0176"
-EXPECTED_OLD_CITY = "Bellevue"
+NEW_VALUES = StoreContactDetails(phone="999-555-0100", city="Teststadt")
+EXPECTED_OLD_VALUES = StoreContactDetails(phone="449-555-0176", city="Bellevue")
 
 STORES_TREE_ITEM_XPATH = ".//TreeItem[@ClassName='RadTreeViewItem'][@Name='Stores']"
 STORES_BREADCRUMB_TEXT_XPATH = (
@@ -46,8 +46,6 @@ INNER_DATA_ITEM_XPATH = (
     f"./DataItem[@ClassName='{TARGET_COMPANY_NAME} data item']"
 )
 DIALOG_XPATH = "//Window[@Name='Edit Store']"
-PHONE_FIELD_XPATH = ".//Edit[@Name='Phone']"
-CITY_FIELD_XPATH = ".//Edit[@Name='City']"
 
 _PHASE_CLOCK = {"last": 0.0}
 
@@ -251,13 +249,6 @@ def _find_target_row(driver, main_window: MainWindow):
     return target_row
 
 
-def _select_target_row(driver, target_row) -> None:
-    # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
-    # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
-    inner_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
-    driver.execute_script("windows: select", inner_item)
-
-
 def _open_edit_dialog_for_target_row(
     driver, main_window: MainWindow, edit_dialog: EditRecordDialog, phase_label: str = "Öffnen"
 ):
@@ -267,7 +258,7 @@ def _open_edit_dialog_for_target_row(
     # EditRecordDialog.open_via_edit_button.
     target_row = _find_target_row(driver, main_window)
     _log_phase(f"{phase_label}: Zielzeile finden")
-    _select_target_row(driver, target_row)
+    select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
 
     try:
         edit_dialog.open_via_edit_button(
@@ -289,34 +280,29 @@ def _shift_focus_with_tab(driver) -> None:
 
 
 def _restore_once_best_effort(
-    driver, settings, main_window: MainWindow, edit_dialog: EditRecordDialog, old_values: dict
+    driver, settings, main_window: MainWindow, edit_dialog: EditRecordDialog,
+    old_values: StoreContactDetails,
 ) -> None:
     # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
     # Wiederherstellungsversuch, keine Retries.
     print(
         f"\nWARNUNG: Datensatz {TARGET_ACCOUNT_NUMBER} ({TARGET_COMPANY_NAME}) "
         "wurde geaendert und die Wiederherstellung ist NICHT verifiziert. "
-        f"Alte Werte: Phone={old_values.get('phone')!r}, "
-        f"City={old_values.get('city')!r}; "
-        f"Testwerte: Phone={NEW_PHONE!r}, City={NEW_CITY!r}. "
+        f"Alte Werte: {old_values!r}; "
+        f"Testwerte: {NEW_VALUES!r}. "
         "Bitte den Datensatz manuell kontrollieren."
     )
     try:
         wait_until_app_ready(driver, settings)
         grid = main_window.grid()
         target_row = grid.find_element("xpath", TARGET_ROW_XPATH)
-        _select_target_row(driver, target_row)
+        select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
         wait_until_app_ready(driver, settings)
 
         # Nur EIN Versuch (retry_attempts=1) - dies ist bereits der Notfallpfad.
         edit_dialog.open_via_edit_button(main_window, 1, EDIT_ENABLED_TIMEOUT_SECONDS)
 
-        for field_xpath, old_value in (
-            (PHONE_FIELD_XPATH, old_values.get("phone")),
-            (CITY_FIELD_XPATH, old_values.get("city")),
-        ):
-            if old_value is not None:
-                edit_dialog.set_field_value_and_verify(field_xpath, old_value)
+        old_values.write_to(edit_dialog)
         _shift_focus_with_tab(driver)
 
         dialog = edit_dialog.element()
@@ -344,7 +330,7 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
     edit_dialog = None
     settings = load_settings()
     state = {"first_ok_done": False, "restore_verified": False}
-    old_values: dict = {}
+    old_values: StoreContactDetails | None = None
 
     try:
         _start_phase_clock()
@@ -368,34 +354,25 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
 
         # Erstes Oeffnen: alte Werte lesen und sofort ausgeben.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 1")
-        old_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
-        old_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
-        old_values["phone"] = old_phone
-        old_values["city"] = old_city
-        print(
-            f"\nAlte Werte {TARGET_ACCOUNT_NUMBER}: "
-            f"Phone={old_phone!r}, City={old_city!r}"
-        )
+        old_values = StoreContactDetails.read_from(edit_dialog)
+        print(f"\nAlte Werte {TARGET_ACCOUNT_NUMBER}: {old_values!r}")
         _log_phase("Alte Werte lesen")
 
-        if old_phone == NEW_PHONE or old_city == NEW_CITY:
+        if old_values.shares_any_field_with(NEW_VALUES):
             pytest.fail(
                 f"Abbruch VOR jeder Aenderung: Datensatz {TARGET_ACCOUNT_NUMBER} "
-                f"enthaelt bereits Testwerte (Phone={old_phone!r}, "
-                f"City={old_city!r}) - vermutlich Reste eines frueheren Laufs. "
-                "Bitte den Datensatz manuell kontrollieren."
+                f"enthaelt bereits Testwerte ({old_values!r}) - vermutlich Reste "
+                "eines frueheren Laufs. Bitte den Datensatz manuell kontrollieren."
             )
-        if old_phone != EXPECTED_OLD_PHONE or old_city != EXPECTED_OLD_CITY:
+        if old_values != EXPECTED_OLD_VALUES:
             print(
                 "Warnung: alte Werte weichen vom Discovery-Stand ab "
-                f"(erwartet Phone={EXPECTED_OLD_PHONE!r}, "
-                f"City={EXPECTED_OLD_CITY!r}) - wiederhergestellt werden die "
-                "soeben gelesenen Werte."
+                f"(erwartet {EXPECTED_OLD_VALUES!r}) - wiederhergestellt werden "
+                "die soeben gelesenen Werte."
             )
 
         # Neue Werte setzen, direkt verifizieren, speichern.
-        edit_dialog.set_field_value_and_verify(PHONE_FIELD_XPATH, NEW_PHONE)
-        edit_dialog.set_field_value_and_verify(CITY_FIELD_XPATH, NEW_CITY)
+        NEW_VALUES.write_to(edit_dialog)
         _shift_focus_with_tab(driver)
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
@@ -409,27 +386,24 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
         except AssertionError as error:
             artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Neue Werte gespeichert: Phone={NEW_PHONE!r}, City={NEW_CITY!r}")
+        print(f"Neue Werte gespeichert: {NEW_VALUES!r}")
         _log_phase("OK speichern + Dialog zu")
 
         # Zweites Oeffnen: Speicherung nachweisen.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
-        saved_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
-        saved_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
-        print(f"Nach dem Speichern: Phone={saved_phone!r}, City={saved_city!r}")
+        saved_values = StoreContactDetails.read_from(edit_dialog)
+        print(f"Nach dem Speichern: {saved_values!r}")
         _log_phase("Speicherung pruefen")
-        if saved_phone != NEW_PHONE or saved_city != NEW_CITY:
+        if saved_values != NEW_VALUES:
             pytest.fail(
-                "Speicherung nicht nachweisbar: erwartet "
-                f"Phone={NEW_PHONE!r}/City={NEW_CITY!r}, gelesen "
-                f"Phone={saved_phone!r}/City={saved_city!r}. Alte Werte waren "
-                f"Phone={old_phone!r}/City={old_city!r}. Bitte den Datensatz "
-                f"{TARGET_ACCOUNT_NUMBER} manuell kontrollieren."
+                f"Speicherung nicht nachweisbar: erwartet {NEW_VALUES!r}, "
+                f"gelesen {saved_values!r}. Alte Werte waren {old_values!r}. "
+                f"Bitte den Datensatz {TARGET_ACCOUNT_NUMBER} manuell "
+                "kontrollieren."
             )
 
         # Alte Werte wiederherstellen und speichern.
-        edit_dialog.set_field_value_and_verify(PHONE_FIELD_XPATH, old_phone)
-        edit_dialog.set_field_value_and_verify(CITY_FIELD_XPATH, old_city)
+        old_values.write_to(edit_dialog)
         _shift_focus_with_tab(driver)
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
@@ -442,27 +416,21 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
         except AssertionError as error:
             artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Wiederherstellung gespeichert: Phone={old_phone!r}, City={old_city!r}")
+        print(f"Wiederherstellung gespeichert: {old_values!r}")
         _log_phase("OK Wiederherstellung + Dialog zu")
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
-        restored_phone = edit_dialog.get_field_value(PHONE_FIELD_XPATH)
-        restored_city = edit_dialog.get_field_value(CITY_FIELD_XPATH)
-        print(
-            f"Nach der Wiederherstellung: Phone={restored_phone!r}, "
-            f"City={restored_city!r}"
-        )
+        restored_values = StoreContactDetails.read_from(edit_dialog)
+        print(f"Nach der Wiederherstellung: {restored_values!r}")
         _log_phase("Wiederherstellung pruefen")
-        if restored_phone != old_phone or restored_city != old_city:
+        if restored_values != old_values:
             pytest.fail(
                 "WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer Datensatz "
                 f"{TARGET_ACCOUNT_NUMBER} ({TARGET_COMPANY_NAME}): erwartet "
-                f"Phone={old_phone!r}/City={old_city!r}, gelesen "
-                f"Phone={restored_phone!r}/City={restored_city!r}. Testwerte "
-                f"waren Phone={NEW_PHONE!r}/City={NEW_CITY!r}. Es werden keine "
-                "weiteren unbekannten Dialoge bestaetigt - bitte den Datensatz "
-                "manuell kontrollieren."
+                f"{old_values!r}, gelesen {restored_values!r}. Testwerte waren "
+                f"{NEW_VALUES!r}. Es werden keine weiteren unbekannten Dialoge "
+                "bestaetigt - bitte den Datensatz manuell kontrollieren."
             )
         state["restore_verified"] = True
 
@@ -474,7 +442,7 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
         _log_phase("Cancel + Dialog zu")
         print(
             f"Wiederherstellung verifiziert: {TARGET_ACCOUNT_NUMBER} steht "
-            f"wieder auf Phone={old_phone!r}, City={old_city!r}."
+            f"wieder auf {old_values!r}."
         )
 
     finally:
