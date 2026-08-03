@@ -28,8 +28,12 @@ class PurchaseOrderEditFields:
         )
 
     def write_to(
-        self, driver, edit_dialog: EditRecordDialog,
-        combo_option_timeout_seconds: int, click_retry_attempts: int,
+        self,
+        driver,
+        edit_dialog: EditRecordDialog,
+        *,
+        combo_option_timeout_seconds: int = 10,
+        click_retry_attempts: int = 3,
     ) -> None:
         vendor = self.vendor
         order_status = self.order_status

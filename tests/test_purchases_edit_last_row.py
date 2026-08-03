@@ -1,25 +1,23 @@
 """Haupttest fuer das Purchases-Szenario: aendert Order Date, Ship Date, Vendor
 und Order Status der letzten Zeile der letzten Seite (Row_19 auf Seite 50) mit
 echtem OK-Speichern und stellt die alten Werte nachweisbar wieder her."""
-import time
 import xml.etree.ElementTree as ElementTree
-from datetime import datetime
-from pathlib import Path
 
 import pytest
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
+from appium_novawindows_poc.business.purchase_order_edit_fields import PurchaseOrderEditFields
+from appium_novawindows_poc.components.edit_record_dialog_actions import EditRecordDialogActions
 from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
+from appium_novawindows_poc.diagnostics import PhaseClock, shift_focus_with_tab, write_diagnostic_artifact
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
+from tests._diagnostics import fail_with_dump
 from tests._waits import wait_until_true
-from tests.support.purchase_order_edit_fields import PurchaseOrderEditFields
 
 PURCHASES_VIEW_TIMEOUT_SECONDS = 15
 PAGE_JUMP_TIMEOUT_SECONDS = 30
@@ -77,42 +75,6 @@ SHIP_DATE_FIELD_XPATH = ".//Edit[@Name='ShipDate']"
 VENDOR_COMBO_XPATH = ".//ComboBox[@Name='VendorID']"
 ORDER_STATUS_COMBO_XPATH = ".//ComboBox[@Name='OrderStatus']"
 
-_PHASE_CLOCK = {"last": 0.0}
-
-
-def _start_phase_clock() -> None:
-    _PHASE_CLOCK["last"] = time.perf_counter()
-
-
-def _log_phase(name: str) -> None:
-    # Laufzeit seit der letzten Phasenmarke als Datenbasis fuer Optimierungen.
-    now = time.perf_counter()
-    print(f"[Phase] {name}: {now - _PHASE_CLOCK['last']:.2f}s")
-    _PHASE_CLOCK["last"] = now
-
-
-def _write_artifact_xml(prefix: str, xml_text: str) -> Path:
-    artifacts_dir = Path("artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = artifacts_dir / f"{prefix}_{timestamp}.xml"
-    output_file.write_text(xml_text, encoding="utf-8")
-    return output_file
-
-
-def _write_diagnostic_artifact(driver, prefix: str) -> Path:
-    try:
-        xml_text = driver.page_source
-    except Exception:
-        xml_text = ""
-    return _write_artifact_xml(prefix, xml_text)
-
-
-def _fail_with_dump(driver, prefix: str, message: str) -> None:
-    artifact_path = _write_diagnostic_artifact(driver, prefix)
-    pytest.fail(f"{message} Diagnose-Dump: {artifact_path}")
-
 
 def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
     # Wie im Discovery-Test: windows: select bevorzugt, einmaliger Fallback auf
@@ -156,7 +118,7 @@ def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
                 purchases_breadcrumb_present, PURCHASES_VIEW_TIMEOUT_SECONDS, "timeout"
             )
         except AssertionError:
-            _fail_with_dump(
+            fail_with_dump(
                 driver,
                 "erp_purchases_navigation_failure",
                 "Purchases-Ansicht laut Breadcrumb weder per windows: select "
@@ -166,20 +128,20 @@ def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
     print(f"\nPurchases-Navigation per: {navigation_method}")
 
 
-def _jump_to_last_page(driver, main_window: MainWindow) -> None:
+def _jump_to_last_page(driver, main_window: MainWindow, phase_clock: PhaseClock) -> None:
     # Ein Invoke auf MoveToLastPageButton mit Pager-Wirkungsnachweis; die
     # erreichte Seite muss exakt dem Discovery-Stand entsprechen, sonst
     # bezeichnet Row_19 nicht mehr den freigegebenen Datensatz.
     pager_start = main_window.pager_value_best_effort()
     if pager_start is None:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_purchases_pager_missing",
             "DataPagerTextBox ist in der Purchases-Ansicht nicht lesbar - "
             "Seitenwechsel-Nachweis nicht moeglich.",
         )
     print(f"Pager nach Purchases-Navigation: {pager_start!r}")
-    _log_phase("Pager-Start lesen")
+    phase_clock.log("Pager-Start lesen")
 
     pager_seen = {"value": None}
 
@@ -198,7 +160,7 @@ def _jump_to_last_page(driver, main_window: MainWindow) -> None:
             last_page_button = None
 
         if last_page_button is None or not last_page_button.is_enabled():
-            _fail_with_dump(
+            fail_with_dump(
                 driver,
                 "erp_purchases_page_jump_failure",
                 "MoveToLastPageButton nicht gefunden oder nicht enabled "
@@ -219,7 +181,7 @@ def _jump_to_last_page(driver, main_window: MainWindow) -> None:
                 )
 
     if not page_jumped:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_purchases_page_jump_failure",
             "Sprung auf die letzte Seite auch nach Retry nicht nachweisbar "
@@ -232,14 +194,14 @@ def _jump_to_last_page(driver, main_window: MainWindow) -> None:
         f"nachher {pager_last!r}"
     )
     if pager_last != EXPECTED_LAST_PAGE:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_purchases_unexpected_last_page",
             f"Letzte Seite ist {pager_last!r} statt {EXPECTED_LAST_PAGE!r} - "
             "Datenbestand offenbar veraendert, die freigegebene Zeile "
             f"{TARGET_ROW_AUTOMATION_ID} waere nicht mehr der Discovery-Datensatz.",
         )
-    _log_phase("Sprung auf letzte Seite")
+    phase_clock.log("Sprung auf letzte Seite")
 
 
 def _find_target_row(driver, main_window: MainWindow):
@@ -261,7 +223,7 @@ def _find_target_row(driver, main_window: MainWindow):
     try:
         wait_until_true(exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout")
     except AssertionError:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_purchases_target_row_missing",
             f"Zielzeile ({ROW_LABEL}) nicht eindeutig gefunden "
@@ -319,7 +281,7 @@ def _verify_order_details(driver, main_window: MainWindow) -> None:
                     driver, _find_target_row(driver, main_window), INNER_DATA_ITEM_XPATH
                 )
             else:
-                _fail_with_dump(
+                fail_with_dump(
                     driver,
                     "erp_purchases_order_details_mismatch",
                     f"Order-Details-Bereich der Zielzeile ({ROW_LABEL}) zeigt "
@@ -348,6 +310,7 @@ def _open_edit_dialog_for_target_row(
     driver,
     main_window: MainWindow,
     edit_dialog: EditRecordDialog,
+    phase_clock: PhaseClock,
     phase_label: str = "Öffnen",
     verify_order_details: bool = False,
 ) -> None:
@@ -356,23 +319,23 @@ def _open_edit_dialog_for_target_row(
     # inneres Data-Item schon. Warten auf enabled/Invoke/Dialog-Erscheinen
     # übernimmt EditRecordDialog.open_via_edit_button.
     target_row = _find_target_row(driver, main_window)
-    _log_phase(f"{phase_label}: Zielzeile finden")
+    phase_clock.log(f"{phase_label}: Zielzeile finden")
     select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
     if verify_order_details:
         _verify_order_details(driver, main_window)
-        _log_phase(f"{phase_label}: Order-Details-Nachweis")
+        phase_clock.log(f"{phase_label}: Order-Details-Nachweis")
 
     try:
         edit_dialog.open_via_edit_button(
             main_window, CLICK_RETRY_ATTEMPTS, EDIT_ENABLED_TIMEOUT_SECONDS
         )
     except AssertionError as error:
-        artifact_path = _write_diagnostic_artifact(
+        artifact_path = write_diagnostic_artifact(
             driver, "erp_purchases_edit_dialog_failure"
         )
         raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
-    _log_phase(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
+    phase_clock.log(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
 
 
 def _read_combo_selected_item(combo_element) -> str | None:
@@ -393,35 +356,6 @@ def _read_combo_selected_item(combo_element) -> str | None:
 
 def _combo_option_xpath(option_name: str) -> str:
     return f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
-
-
-def _write_values_with_dump(
-    driver,
-    edit_dialog: EditRecordDialog,
-    values: PurchaseOrderEditFields,
-    phase_label: str,
-    artifact_prefix: str,
-) -> None:
-    # ESCAPE-Cleanup und Diagnose-Dump bleiben wie zuvor erhalten, jetzt um
-    # den gesamten Schreibvorgang statt um jede einzelne Combo-Auswahl.
-    try:
-        values.write_to(
-            driver, edit_dialog, COMBO_OPTION_TIMEOUT_SECONDS, CLICK_RETRY_ATTEMPTS
-        )
-    except AssertionError as error:
-        try:
-            ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-        except Exception:
-            pass
-        artifact_path = _write_diagnostic_artifact(driver, artifact_prefix)
-        raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-    _log_phase(f"{phase_label}: Felder setzen")
-
-
-def _shift_focus_with_tab(driver) -> None:
-    # Fokuswechsel nach dem Setzen, damit das Binding den Wert uebernimmt
-    # (etabliertes Muster aus dem Ship-Method-Test).
-    ActionChains(driver).send_keys(Keys.TAB).perform()
 
 
 def _restore_combo_single_attempt(
@@ -486,7 +420,7 @@ def _restore_once_best_effort(
                 _restore_combo_single_attempt(
                     driver, edit_dialog, combo_xpath, old_value
                 )
-        _shift_focus_with_tab(driver)
+        shift_focus_with_tab(driver)
 
         dialog = edit_dialog.element()
         ok_buttons = dialog.find_elements("xpath", EditRecordDialog.OK_BUTTON_XPATH)
@@ -504,7 +438,7 @@ def _restore_once_best_effort(
         print("Der Restore-Versuch ist NICHT verifiziert - bitte manuell pruefen.")
     except Exception as error:
         print(f"Restore-Versuch im finally fehlgeschlagen: {error}")
-        _write_diagnostic_artifact(driver, "erp_purchases_finally_restore_failure")
+        write_diagnostic_artifact(driver, "erp_purchases_finally_restore_failure")
 
 
 def test_purchases_edit_last_row_with_ok_save_and_restore():
@@ -516,31 +450,35 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
     old_values: PurchaseOrderEditFields | None = None
 
     try:
-        _start_phase_clock()
+        phase_clock = PhaseClock()
         app_process = start_windows_app(settings)
         main_window_handle = wait_for_main_window_handle(settings, app_process.pid)
-        _log_phase("App-Start + Fenster-Handle")
+        phase_clock.log("App-Start + Fenster-Handle")
         driver = attach_to_window_driver(
             settings=settings,
             top_level_window_handle=main_window_handle,
         )
-        _log_phase("Attach")
+        phase_clock.log("Attach")
         wait_until_app_ready(driver, settings)
-        _log_phase("ready initial")
+        phase_clock.log("ready initial")
         main_window = MainWindow(driver)
         edit_dialog = EditRecordDialog(driver, DIALOG_XPATH)
+        dialog_actions = EditRecordDialogActions(
+            driver, edit_dialog, phase_clock, "erp_purchases",
+            CLICK_RETRY_ATTEMPTS, OK_ENABLED_TIMEOUT_SECONDS, DIALOG_CLOSE_TIMEOUT_SECONDS,
+        )
 
         _navigate_to_purchases(driver, settings, main_window)
-        _log_phase("Purchases-Navigation + Nachweis")
-        _jump_to_last_page(driver, main_window)
+        phase_clock.log("Purchases-Navigation + Nachweis")
+        _jump_to_last_page(driver, main_window, phase_clock)
 
         # Erstes Oeffnen: Order-Details-Nachweis, alte Werte lesen und ausgeben.
         _open_edit_dialog_for_target_row(
-            driver, main_window, edit_dialog, "Oeffnen 1", verify_order_details=True
+            driver, main_window, edit_dialog, phase_clock, "Oeffnen 1", verify_order_details=True
         )
         old_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
         print(f"\nAlte Werte ({ROW_LABEL}): {old_values!r}")
-        _log_phase("Alte Werte lesen")
+        phase_clock.log("Alte Werte lesen")
 
         if old_values.has_missing_values():
             pytest.fail(
@@ -562,31 +500,16 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
             )
 
         # Neue Werte setzen, direkt verifizieren, speichern.
-        _write_values_with_dump(
-            driver, edit_dialog, NEW_VALUES, "Neue Werte",
-            "erp_purchases_write_new_values_failure",
+        dialog_actions.write_and_save(
+            NEW_VALUES, "Neue Werte", "erp_purchases_write_new_values_failure",
+            on_ok_enabled=lambda: state.update(first_ok_done=True),
         )
-        _shift_focus_with_tab(driver)
-        try:
-            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_disabled")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Neue Werte: Tab + OK enabled")
-        state["first_ok_done"] = True
-        try:
-            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Neue Werte gespeichert: {NEW_VALUES!r}")
-        _log_phase("OK speichern + Dialog zu")
 
         # Zweites Oeffnen: Speicherung nachweisen.
-        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 2")
         saved_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
         print(f"Nach dem Speichern: {saved_values!r}")
-        _log_phase("Speicherung pruefen")
+        phase_clock.log("Speicherung pruefen")
         if saved_values != NEW_VALUES:
             pytest.fail(
                 f"Speicherung nicht nachweisbar: erwartet "
@@ -597,30 +520,13 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
             )
 
         # Alte Werte wiederherstellen und speichern.
-        _write_values_with_dump(
-            driver, edit_dialog, old_values, "Alte Werte",
-            "erp_purchases_write_old_values_failure",
-        )
-        _shift_focus_with_tab(driver)
-        try:
-            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_disabled")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Alte Werte: Tab + OK enabled")
-        try:
-            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_ok_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Wiederherstellung gespeichert: {old_values!r}")
-        _log_phase("OK Wiederherstellung + Dialog zu")
+        dialog_actions.write_and_save(old_values, "Alte Werte", "erp_purchases_write_old_values_failure")
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
-        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 3")
         restored_values = PurchaseOrderEditFields.read_from(driver, edit_dialog)
         print(f"Nach der Wiederherstellung: {restored_values!r}")
-        _log_phase("Wiederherstellung pruefen")
+        phase_clock.log("Wiederherstellung pruefen")
         if restored_values != old_values:
             pytest.fail(
                 f"WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer den Datensatz "
@@ -632,12 +538,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
             )
         state["restore_verified"] = True
 
-        try:
-            edit_dialog.close_via_cancel(CLICK_RETRY_ATTEMPTS, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_purchases_cancel_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Cancel + Dialog zu")
+        dialog_actions.cancel("Cancel + Dialog zu")
         print(
             f"Wiederherstellung verifiziert: Datensatz ({ROW_LABEL}) steht "
             f"wieder auf {old_values!r}."
