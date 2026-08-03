@@ -1,24 +1,21 @@
 """Haupttest fuer das Stores-Szenario: aendert Phone und City des freigegebenen
 Datensatzes AW00000254 mit echtem OK-Speichern und stellt die alten Werte
 anschliessend nachweisbar wieder her (drittes Oeffnen als Verifikation)."""
-import time
-from datetime import datetime
-from pathlib import Path
-
 import pytest
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
+from appium_novawindows_poc.business.store_contact_details import StoreContactDetails
+from appium_novawindows_poc.components.edit_record_dialog_actions import EditRecordDialogActions
 from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
+from appium_novawindows_poc.diagnostics import PhaseClock, shift_focus_with_tab, write_diagnostic_artifact
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
+from tests._diagnostics import fail_with_dump
 from tests._waits import wait_until_true
-from tests.support.store_contact_details import StoreContactDetails
 
 PAGES_FORWARD = 4
 STORES_VIEW_TIMEOUT_SECONDS = 15
@@ -46,42 +43,6 @@ INNER_DATA_ITEM_XPATH = (
     f"./DataItem[@ClassName='{TARGET_COMPANY_NAME} data item']"
 )
 DIALOG_XPATH = "//Window[@Name='Edit Store']"
-
-_PHASE_CLOCK = {"last": 0.0}
-
-
-def _start_phase_clock() -> None:
-    _PHASE_CLOCK["last"] = time.perf_counter()
-
-
-def _log_phase(name: str) -> None:
-    # Laufzeit seit der letzten Phasenmarke als Datenbasis fuer Optimierungen.
-    now = time.perf_counter()
-    print(f"[Phase] {name}: {now - _PHASE_CLOCK['last']:.2f}s")
-    _PHASE_CLOCK["last"] = now
-
-
-def _write_artifact_xml(prefix: str, xml_text: str) -> Path:
-    artifacts_dir = Path("artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = artifacts_dir / f"{prefix}_{timestamp}.xml"
-    output_file.write_text(xml_text, encoding="utf-8")
-    return output_file
-
-
-def _write_diagnostic_artifact(driver, prefix: str) -> Path:
-    try:
-        xml_text = driver.page_source
-    except Exception:
-        xml_text = ""
-    return _write_artifact_xml(prefix, xml_text)
-
-
-def _fail_with_dump(driver, prefix: str, message: str) -> None:
-    artifact_path = _write_diagnostic_artifact(driver, prefix)
-    pytest.fail(f"{message} Diagnose-Dump: {artifact_path}")
 
 
 def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
@@ -126,7 +87,7 @@ def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
                 stores_breadcrumb_present, STORES_VIEW_TIMEOUT_SECONDS, "timeout"
             )
         except AssertionError:
-            _fail_with_dump(
+            fail_with_dump(
                 driver,
                 "erp_stores_navigation_failure",
                 "Stores-Ansicht laut Breadcrumb weder per windows: select "
@@ -136,19 +97,19 @@ def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
     print(f"\nStores-Navigation per: {navigation_method}")
 
 
-def _advance_pages(driver, main_window: MainWindow) -> None:
+def _advance_pages(driver, main_window: MainWindow, phase_clock: PhaseClock) -> None:
     # 4x weiterblaettern; Wirkungsnachweis pro Invoke ausschliesslich ueber den
     # Pager-Wert (in der Discovery als harter Indikator verifiziert).
     pager_current = main_window.pager_value_best_effort()
     if pager_current is None:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_stores_pager_missing",
             "DataPagerTextBox ist in der Stores-Ansicht nicht lesbar - "
             "Seitenwechsel-Nachweis nicht moeglich.",
         )
     print(f"Pager nach Stores-Navigation: {pager_current!r}")
-    _log_phase("Pager-Start lesen")
+    phase_clock.log("Pager-Start lesen")
 
     for step_number in range(1, PAGES_FORWARD + 1):
         pager_before = pager_current
@@ -169,7 +130,7 @@ def _advance_pages(driver, main_window: MainWindow) -> None:
                 next_page_button = None
 
             if next_page_button is None or not next_page_button.is_enabled():
-                _fail_with_dump(
+                fail_with_dump(
                     driver,
                     "erp_stores_page_change_failure",
                     f"MoveToNextPageButton vor Seitenwechsel {step_number} von "
@@ -192,7 +153,7 @@ def _advance_pages(driver, main_window: MainWindow) -> None:
                     )
 
         if not page_advanced:
-            _fail_with_dump(
+            fail_with_dump(
                 driver,
                 "erp_stores_page_change_failure",
                 f"Seitenwechsel {step_number} von {PAGES_FORWARD} auch nach "
@@ -204,7 +165,7 @@ def _advance_pages(driver, main_window: MainWindow) -> None:
             f"Seitenwechsel {step_number}: Pager vorher {pager_before!r}, "
             f"nachher {pager_current!r}"
         )
-        _log_phase(f"Seitenwechsel {step_number}")
+        phase_clock.log(f"Seitenwechsel {step_number}")
 
 
 def _find_target_row(driver, main_window: MainWindow):
@@ -229,7 +190,7 @@ def _find_target_row(driver, main_window: MainWindow):
             exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout"
         )
     except AssertionError:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_stores_target_row_missing",
             f"Zielzeile {TARGET_ACCOUNT_NUMBER} nicht eindeutig gefunden "
@@ -240,7 +201,7 @@ def _find_target_row(driver, main_window: MainWindow):
 
     row_name = target_row.get_attribute("Name")
     if row_name != TARGET_COMPANY_NAME:
-        _fail_with_dump(
+        fail_with_dump(
             driver,
             "erp_stores_target_row_mismatch",
             f"Zeilen-Identitaet passt nicht: Name {row_name!r} statt "
@@ -250,14 +211,15 @@ def _find_target_row(driver, main_window: MainWindow):
 
 
 def _open_edit_dialog_for_target_row(
-    driver, main_window: MainWindow, edit_dialog: EditRecordDialog, phase_label: str = "Öffnen"
+    driver, main_window: MainWindow, edit_dialog: EditRecordDialog, phase_clock: PhaseClock,
+    phase_label: str = "Öffnen",
 ):
     # Zeile wird bei jedem Öffnen frisch gesucht und pattern-basiert selektiert;
     # die GridViewRow selbst unterstützt kein SelectionItemPattern, ihr inneres
     # Data-Item schon. Warten auf enabled/Invoke/Dialog-Erscheinen übernimmt
     # EditRecordDialog.open_via_edit_button.
     target_row = _find_target_row(driver, main_window)
-    _log_phase(f"{phase_label}: Zielzeile finden")
+    phase_clock.log(f"{phase_label}: Zielzeile finden")
     select_row_via_inner_data_item(driver, target_row, INNER_DATA_ITEM_XPATH)
 
     try:
@@ -265,18 +227,12 @@ def _open_edit_dialog_for_target_row(
             main_window, CLICK_RETRY_ATTEMPTS, EDIT_ENABLED_TIMEOUT_SECONDS
         )
     except AssertionError as error:
-        artifact_path = _write_diagnostic_artifact(
+        artifact_path = write_diagnostic_artifact(
             driver, "erp_stores_edit_dialog_failure"
         )
         raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
-    _log_phase(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
-
-
-def _shift_focus_with_tab(driver) -> None:
-    # Fokuswechsel nach setValue, damit das Binding den Wert uebernimmt
-    # (etabliertes Muster aus dem Ship-Method-Test).
-    ActionChains(driver).send_keys(Keys.TAB).perform()
+    phase_clock.log(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
 
 
 def _restore_once_best_effort(
@@ -302,8 +258,8 @@ def _restore_once_best_effort(
         # Nur EIN Versuch (retry_attempts=1) - dies ist bereits der Notfallpfad.
         edit_dialog.open_via_edit_button(main_window, 1, EDIT_ENABLED_TIMEOUT_SECONDS)
 
-        old_values.write_to(edit_dialog)
-        _shift_focus_with_tab(driver)
+        old_values.write_to(driver, edit_dialog)
+        shift_focus_with_tab(driver)
 
         dialog = edit_dialog.element()
         ok_buttons = dialog.find_elements("xpath", EditRecordDialog.OK_BUTTON_XPATH)
@@ -321,7 +277,7 @@ def _restore_once_best_effort(
         print("Der Restore-Versuch ist NICHT verifiziert - bitte manuell pruefen.")
     except Exception as error:
         print(f"Restore-Versuch im finally fehlgeschlagen: {error}")
-        _write_diagnostic_artifact(driver, "erp_stores_finally_restore_failure")
+        write_diagnostic_artifact(driver, "erp_stores_finally_restore_failure")
 
 
 def test_stores_edit_phone_city_with_ok_save_and_restore():
@@ -333,30 +289,34 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
     old_values: StoreContactDetails | None = None
 
     try:
-        _start_phase_clock()
+        phase_clock = PhaseClock()
         app_process = start_windows_app(settings)
         main_window_handle = wait_for_main_window_handle(settings, app_process.pid)
-        _log_phase("App-Start + Fenster-Handle")
+        phase_clock.log("App-Start + Fenster-Handle")
         driver = attach_to_window_driver(
             settings=settings,
             top_level_window_handle=main_window_handle,
         )
-        _log_phase("Attach")
+        phase_clock.log("Attach")
         wait_until_app_ready(driver, settings)
-        _log_phase("ready initial")
+        phase_clock.log("ready initial")
 
         main_window = MainWindow(driver)
         edit_dialog = EditRecordDialog(driver, DIALOG_XPATH)
+        dialog_actions = EditRecordDialogActions(
+            driver, edit_dialog, phase_clock, "erp_stores",
+            CLICK_RETRY_ATTEMPTS, OK_ENABLED_TIMEOUT_SECONDS, DIALOG_CLOSE_TIMEOUT_SECONDS,
+        )
 
         _navigate_to_stores(driver, settings, main_window)
-        _log_phase("Stores-Navigation + Nachweis")
-        _advance_pages(driver, main_window)
+        phase_clock.log("Stores-Navigation + Nachweis")
+        _advance_pages(driver, main_window, phase_clock)
 
         # Erstes Oeffnen: alte Werte lesen und sofort ausgeben.
-        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 1")
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 1")
         old_values = StoreContactDetails.read_from(edit_dialog)
         print(f"\nAlte Werte {TARGET_ACCOUNT_NUMBER}: {old_values!r}")
-        _log_phase("Alte Werte lesen")
+        phase_clock.log("Alte Werte lesen")
 
         if old_values.shares_any_field_with(NEW_VALUES):
             pytest.fail(
@@ -372,28 +332,16 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
 
         # Neue Werte setzen, direkt verifizieren, speichern.
-        NEW_VALUES.write_to(edit_dialog)
-        _shift_focus_with_tab(driver)
-        try:
-            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_disabled")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Neue Werte setzen + OK enabled")
-        state["first_ok_done"] = True
-        try:
-            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Neue Werte gespeichert: {NEW_VALUES!r}")
-        _log_phase("OK speichern + Dialog zu")
+        dialog_actions.write_and_save(
+            NEW_VALUES, "Neue Werte", "erp_stores_write_new_values_failure",
+            on_ok_enabled=lambda: state.update(first_ok_done=True),
+        )
 
         # Zweites Oeffnen: Speicherung nachweisen.
-        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 2")
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 2")
         saved_values = StoreContactDetails.read_from(edit_dialog)
         print(f"Nach dem Speichern: {saved_values!r}")
-        _log_phase("Speicherung pruefen")
+        phase_clock.log("Speicherung pruefen")
         if saved_values != NEW_VALUES:
             pytest.fail(
                 f"Speicherung nicht nachweisbar: erwartet {NEW_VALUES!r}, "
@@ -403,27 +351,13 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
 
         # Alte Werte wiederherstellen und speichern.
-        old_values.write_to(edit_dialog)
-        _shift_focus_with_tab(driver)
-        try:
-            ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_disabled")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Alte Werte setzen + OK enabled")
-        try:
-            edit_dialog.invoke_ok_and_wait_closed(ok_button, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_ok_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        print(f"Wiederherstellung gespeichert: {old_values!r}")
-        _log_phase("OK Wiederherstellung + Dialog zu")
+        dialog_actions.write_and_save(old_values, "Wiederherstellung", "erp_stores_write_old_values_failure")
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
-        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, "Oeffnen 3")
+        _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 3")
         restored_values = StoreContactDetails.read_from(edit_dialog)
         print(f"Nach der Wiederherstellung: {restored_values!r}")
-        _log_phase("Wiederherstellung pruefen")
+        phase_clock.log("Wiederherstellung pruefen")
         if restored_values != old_values:
             pytest.fail(
                 "WIEDERHERSTELLUNG FEHLGESCHLAGEN fuer Datensatz "
@@ -434,12 +368,7 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
         state["restore_verified"] = True
 
-        try:
-            edit_dialog.close_via_cancel(CLICK_RETRY_ATTEMPTS, DIALOG_CLOSE_TIMEOUT_SECONDS)
-        except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_stores_cancel_failure")
-            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
-        _log_phase("Cancel + Dialog zu")
+        dialog_actions.cancel("Cancel + Dialog zu")
         print(
             f"Wiederherstellung verifiziert: {TARGET_ACCOUNT_NUMBER} steht "
             f"wieder auf {old_values!r}."

@@ -18,7 +18,7 @@ class StoreContactDetails:
             city=edit_dialog.get_field_value(CITY_FIELD_XPATH),
         )
 
-    def write_to(self, edit_dialog: EditRecordDialog) -> None:
+    def write_to(self, _driver, edit_dialog: EditRecordDialog) -> None:
         edit_dialog.set_field_value_and_verify(PHONE_FIELD_XPATH, self.phone)
         edit_dialog.set_field_value_and_verify(CITY_FIELD_XPATH, self.city)
 
