@@ -79,6 +79,8 @@ Die Anwendung darf nicht minimiert sein.
 
 Der Window Handle ist nicht dauerhaft. Er kann sich bei jedem Neustart der Anwendung ändern und muss daher neu ermittelt werden.
 
+Ein Fensterhandle kann sich auch während eines Testfalls ändern, wenn das Fenster geschlossen und neu erstellt wird. Nach einem solchen Fensterwechsel muss das aktuelle Handle erneut ermittelt werden.
+
 ### Handle über Prozess und Fenstertitel ermitteln
 
 ```powershell
