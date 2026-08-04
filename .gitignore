@@ -242,3 +242,6 @@ Thumbs.db
 
 # Lokale Dateien, die nicht in das Repository aufgenommen werden sollen
 *.local.*
+
+# Lokale Wegwerf-/Probe-Skripte, getrennt von der eigentlichen Testsuite
+/local/
