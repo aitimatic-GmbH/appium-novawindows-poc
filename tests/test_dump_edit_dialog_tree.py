@@ -14,6 +14,7 @@ from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
+from tests._diagnostics import ensure_failure_artifact_captured
 from tests._waits import wait_until_true
 
 EDIT_ENABLED_TIMEOUT_SECONDS = 20
@@ -145,6 +146,11 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
 
         _close_dialog_best_effort(driver)
 
+    except pytest.xfail.Exception:
+        raise
+    except (Exception, pytest.fail.Exception):
+        ensure_failure_artifact_captured(driver, "erp_dump_edit_dialog_tree_unhandled")
+        raise
     finally:
         if driver is not None:
             with contextlib.suppress(Exception):

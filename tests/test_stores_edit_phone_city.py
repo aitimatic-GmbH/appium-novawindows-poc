@@ -24,7 +24,7 @@ from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
-from tests._diagnostics import fail_with_dump
+from tests._diagnostics import ensure_failure_artifact_captured, fail_with_dump
 from tests._waits import wait_until_true
 
 PAGES_FORWARD = 4
@@ -390,6 +390,11 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             f"wieder auf {old_values!r}."
         )
 
+    except pytest.xfail.Exception:
+        raise
+    except (Exception, pytest.fail.Exception):
+        ensure_failure_artifact_captured(driver, "erp_stores_unhandled")
+        raise
     finally:
         if driver is not None:
             if edit_dialog is not None:

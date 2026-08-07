@@ -3,12 +3,15 @@ import xml.etree.ElementTree as ElementTree
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import has_active_busy_indicator, wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
+from tests._diagnostics import ensure_failure_artifact_captured
 
 
 def test_dump_ui_tree_for_locator_discovery():
@@ -46,6 +49,11 @@ def test_dump_ui_tree_for_locator_discovery():
         element_count = sum(1 for _ in root.iter())
         assert element_count > 10
 
+    except pytest.xfail.Exception:
+        raise
+    except (Exception, pytest.fail.Exception):
+        ensure_failure_artifact_captured(driver, "erp_dump_ui_tree_unhandled")
+        raise
     finally:
         if driver is not None:
             with contextlib.suppress(Exception):
