@@ -155,7 +155,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `main_window_locator_candidates.md`, `edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
   - `poc_result.md`: zusammengefasste POC-Ergebnisse und belegte Laufzeiten
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
-- `artifacts/`: Testberichte (`junit.xml`, `report.html`) sowie lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps und Fehler-Screenshots (`screenshots/`); der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an
+- `artifacts/`: Testberichte (`junit.xml`, `report.html`) sowie lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps, Fehler-Screenshots (`screenshots/`) und die Video-Aufzeichnung (`erp_smoke_click.mp4`); der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an
 
 ## Hinweise
 

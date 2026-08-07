@@ -29,6 +29,8 @@ Testläufen grün.
 | Geometrieunabhängig bedienen (`windows: select` und `windows: expand` statt Koordinaten) | `test_edit_dialog_ship_method.py`, Zeilenauswahl über das innere Data-Item |
 | Fehlerfälle mit gezielten Diagnoseartefakten stützen (Dump nur beim endgültigen Fehler) | `_write_diagnostic_artifact` |
 | Einen echten Speichervorgang kontrolliert durchführen und die Ursprungswerte nachweislich wiederherstellen | `test_stores_edit_phone_city.py` (Phone, City), `test_purchases_edit_last_row.py` (letzte Bestellung) |
+| Jeden Testlauf automatisch mit einem maschinen- und einem menschenlesbaren Bericht sowie, bei fehlgeschlagenen Tests, Screenshot- und XML-Diagnoseartefakten dokumentieren | `pytest.ini` (JUnit-XML, HTML-Report), `diagnostics.py` (Artefakt-Registry, Screenshot-Erfassung), `tests/conftest.py` (Report-Anbindung) |
+| Videoaufzeichnung der UI-Interaktionsphase bei Fehlschlägen (einmalig verifizierter Spike) | `diagnostics.py` (`start_screen_recording`/`stop_screen_recording`), `test_smoke_click.py` |
 
 Die beiden datenverändernden Szenarien speichern über OK, prüfen beim erneuten
 Öffnen die persistierten Werte, stellen die Ursprungswerte wieder her und prüfen
@@ -72,7 +74,6 @@ Nur offene Punkte, keine zugesagten Ergebnisse.
 
 - Session-Bootstrap für einen unbeaufsichtigten Lauf der Oberflächentests.
 - Generische NovaWindows-Test-Library statt einzelner Beispiel-Workflows.
-- Reporting.
 - Weitere Performance-Optimierung, insbesondere Reduktion der
   `wait_until_app_ready`-`page_source`-Aufrufe.
 - Stabilisierung der bekannten Fokus- und Invoke-Flakiness.
