@@ -98,3 +98,14 @@ def write_diagnostic_artifact(driver, prefix: str) -> Path:
 
 def shift_focus_with_tab(driver) -> None:
     ActionChains(driver).send_keys(Keys.TAB).perform()
+
+
+def start_screen_recording(driver, video_path: str) -> None:
+    driver.execute_script(
+        "windows: startRecordingScreen",
+        {"outputPath": video_path},
+    )
+
+
+def stop_screen_recording(driver) -> None:
+    driver.execute_script("windows: stopRecordingScreen", {})
