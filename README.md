@@ -41,6 +41,10 @@ In der `.env` anschließend die Werte eintragen:
 | `WINDOWS_APP_READY_TIMEOUT_SECONDS` | nein | Maximale Wartezeit, bis die Anwendung bereit ist, Standard 60 |
 | `WINDOWS_APP_SPLASH_MARKER` | nein | Text/Klasse des abzuwartenden Splash-Screens |
 | `SMOKE_CLICK_ACCESSIBILITY_ID` / `SMOKE_CLICK_NAME` | nein | Locator für den Smoke-Click-Test |
+| `WINDOWS_CAPTURE_SCREENSHOT_ON_FAILURE` | nein | Screenshot und XML-Dump bei fehlschlagenden UI-Tests, Standard aus |
+| `WINDOWS_SCREENSHOT_JPEG_QUALITY` | nein | JPEG-Qualität dieser Screenshots, Standard 80, Bereich 1 bis 100 |
+| `WINDOWS_RECORD_VIDEO_ON_FAILURE` | nein | Videoaufzeichnung bei fehlschlagenden Läufen, aktuell nur für `test_smoke_click.py`, Standard aus |
+| `WINDOWS_REPORTING_DEMO_FAILURE` | nein | löst gezielt einen Fehlschlag für die Reporting-Verifikation aus, Standard aus |
 
 `WINDOWS_APP_PATH` ist absolut anzugeben, da die Zielanwendung nicht Teil dieses Repositories ist, sondern separat auf dem jeweiligen Windows-Host installiert wird.
 
@@ -76,6 +80,28 @@ Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontro
 
 - `test_dump_ui_tree.py`: UI-Tree-Dump des Hauptfensters zur Locator-Analyse
 - `test_dump_edit_dialog_tree.py`: UI-Tree-Dump des Edit-Dialogs zur Locator-Analyse
+
+### Unit-Tests
+
+- `test_diagnostics_jpeg_quality.py`: prüft `get_screenshot_jpeg_quality()` isoliert über `monkeypatch`, ohne Appium-Server oder Zielanwendung
+
+### Reporting-Verifikation
+
+- `test_reporting_forced_failure.py`: übersprungen, solange `WINDOWS_REPORTING_DEMO_FAILURE` nicht `true` ist; baut sonst einen echten Driver auf und schlägt danach bewusst fehl, damit sich Screenshot- und XML-Reporting gezielt gegen die echte Anwendung verifizieren lassen, ohne eines der POC-Testszenarien dafür temporär zu verändern
+- Dieselbe Variable löst, kombiniert mit `WINDOWS_RECORD_VIDEO_ON_FAILURE`, nach erfolgreicher UI-Interaktion auch in `test_smoke_click.py` einen bewussten Fehlschlag aus, um die Video-Aufzeichnung im Fehlerfall zu prüfen
+
+## Testberichte
+
+Jeder Testlauf erzeugt automatisch einen JUnit-XML-Report (`artifacts/junit.xml`) und einen menschenlesbaren HTML-Report (`artifacts/report.html`), ohne dass dafür zusätzliche Aufrufparameter nötig sind.
+
+Zwei Opt-in-Umgebungsvariablen aus `.env.example` ergänzen die Reports um Diagnosematerial bei fehlgeschlagenen Tests:
+
+- `WINDOWS_CAPTURE_SCREENSHOT_ON_FAILURE`: jeder fehlschlagende UI-Test erhält vor dem Driver-Cleanup einen Screenshot und einen XML-Dump, sofern zu diesem Zeitpunkt bereits ein aktiver Driver verfügbar ist. Fehler vor erfolgreichem Driver-Attach (z. B. beim App-Start) können keinen Anwendungsscreenshot und keinen UI-XML-Dump erzeugen, der reguläre pytest-Fehlerbericht bleibt davon unberührt. Screenshots liegen als `.jpg` unter `artifacts/screenshots/`, extern verlinkt statt in den HTML-Report eingebettet.
+- `WINDOWS_SCREENSHOT_JPEG_QUALITY`: Qualität dieser Screenshots, Standard 80, zulässiger Bereich 1 bis 100. Höhere Werte verbessern die Bildqualität, erhöhen aber den Speicherbedarf, niedrigere Werte sparen Speicher, können aber kleine UI-Texte schwerer lesbar machen. Bei ungültiger Konfiguration (nicht numerisch oder außerhalb des Bereichs) fällt der Wert mit einer Warnung auf 80 zurück, der Testlauf selbst bricht dadurch nicht ab.
+
+Der HTML-Report referenziert Screenshots und XML-Dumps über relative Pfade, daher kann der komplette `artifacts/`-Ordner als Einheit verschoben werden, ohne dass die Verknüpfungen brechen.
+
+Eine dritte Umgebungsvariable, `WINDOWS_RECORD_VIDEO_ON_FAILURE`, zeichnet die UI-Interaktionsphase als Video auf, aktuell nur an `test_smoke_click.py` verifiziert. Die Datei bleibt nur bei einem fehlgeschlagenen Testlauf erhalten und wird bei Erfolg automatisch gelöscht; auf die übrige Testsuite ist die Aufzeichnung noch nicht ausgerollt.
 
 ## Prüfungen
 
@@ -119,16 +145,17 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `components/`: wiederverwendbare technische UI-Automatisierungs-Bausteine, einschließlich `RadComboBox`, `select_row_via_inner_data_item` und `EditRecordDialogActions` (Schreiben/Speichern/Cancel im Edit-Dialog), keine Fachlichkeit
   - `business/`: anwendungsspezifische Wertobjekte für fachlich zusammengehörige Editierfelder (`StoreContactDetails`, `PurchaseOrderEditFields`)
   - `polling.py`: generischer Polling-Helfer (`wait_until_true`), von Fachobjekten und Tests genutzt
-  - `diagnostics.py`: technische Diagnose-Helfer (Phasen-Zeitmessung, XML-Dump-Artefakte, Fokuswechsel), pytest-unabhängig
+  - `diagnostics.py`: technische Diagnose-Helfer (Phasen-Zeitmessung, XML-Dump- und Screenshot-Artefakte, Artefakt-Registry für die Report-Anbindung, Fokuswechsel, Videoaufzeichnung), pytest-unabhängig
 - `tests/`: pytest-Testsuite
+  - `conftest.py`: Hooks für die Report-Anbindung, setzt die Artefakt-Registry vor jedem Test zurück und hängt Screenshot/XML-Dump bei unerwarteten Fehlern als Extras an den HTML-Report an
   - `_waits.py`: dünner Re-Export von `appium_novawindows_poc.polling.wait_until_true`
-  - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump`
+  - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump` und `ensure_failure_artifact_captured`
 - `docs/`: Projektdokumentation
   - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
   - `main_window_locator_candidates.md`, `edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
   - `poc_result.md`: zusammengefasste POC-Ergebnisse und belegte Laufzeiten
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
-- `artifacts/`: lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps; der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an
+- `artifacts/`: Testberichte (`junit.xml`, `report.html`) sowie lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps und Fehler-Screenshots (`screenshots/`); der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an
 
 ## Hinweise
 
