@@ -6,7 +6,7 @@
   "scripts": {
     "appium": "appium",
     "appium:version": "appium -v",
-    "appium:start": "appium --address 127.0.0.1 --port 4723 --log-level info"
+    "appium:start": "appium --address 0.0.0.0 --port 4723 --log-level info"
   },
   "repository": {
     "type": "git",
