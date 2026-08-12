@@ -239,3 +239,6 @@ artifacts/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Lokale Dateien, die nicht in das Repository aufgenommen werden sollen
+*.local.*
