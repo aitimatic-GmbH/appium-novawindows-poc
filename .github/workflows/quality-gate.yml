@@ -1,0 +1,38 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Der Lauf liest nur; Schreibrechte am Repository braucht er nicht.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Abbruch bewusst nur bei Pull Requests. Ein abgebrochener Lauf auf dem
+  # Hauptzweig meldet "cancelled" und würde als Pflicht-Check blockieren.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      # Actions per Commit-Hash statt per Tag, damit ein verschobener Tag den
+      # Lauf nicht unbemerkt verändern kann.
+      - name: Quellstand auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Python einrichten
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+
+      - name: Werkzeuge installieren
+        run: pip install -r requirements-dev.txt
+
+      # Dieselbe Konfiguration und dieselben Werkzeugstände wie lokal, hier
+      # aber über alle Dateien statt nur über die vorgemerkten.
+      - name: Prüfungen über alle Dateien laufen lassen
+        run: pre-commit run --all-files --show-diff-on-failure

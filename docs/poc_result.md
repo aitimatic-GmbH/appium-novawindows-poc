@@ -4,8 +4,8 @@ Technischer Nachweis, dass Appium mit dem NovaWindows-Treiber die Zielanwendung
 (Windows, WPF, Telerik) automatisieren kann. Diese Datei fasst die belegten
 Ergebnisse des POC zusammen. Die Fähigkeiten sind im versionierten Testcode
 umgesetzt; die Laufzeiten stammen aus manuellen Testläufen in einer aktiven,
-entsperrten Windows-Desktop-Session. Eine CI- oder automatisierte Messumgebung
-gibt es nicht.
+entsperrten Windows-Desktop-Session. Die Oberflächentests sind nicht Teil des
+Prüflaufs auf GitHub, eine automatisierte Messumgebung gibt es nicht.
 
 ## Nachgewiesen
 
@@ -67,7 +67,9 @@ Prädikat lag bei rund 102 s gegenüber rund 3,5 s für den `ancestor`-Aufstieg)
   Windows-Desktop-Session voraus; ohne sie bleibt das Hauptfenster unsichtbar.
 - Der versionierte Ship-Method-Test trägt die verifizierten Schnell-Optimierungen
   noch nicht.
-- Es gibt keine CI-Pipeline und keinen automatischen Session-Bootstrap.
+- Der Prüflauf auf GitHub deckt nur Linting, Formatierung und Dateihygiene ab;
+  die Oberflächentests brauchen weiterhin einen manuellen Start in einer
+  interaktiven Session.
 
 ## Nächste Phase
 
@@ -77,7 +79,7 @@ Nur offene Punkte, keine zugesagten Ergebnisse.
   Wegfall des abschließenden `page_source`, Cancel über Polling) in den
   versionierten Test heben und dabei die geometrieunabhängige Bedienung
   (`windows: select`, `windows: expand`) behalten, danach live verifizieren.
-- CI und Session-Bootstrap für einen unbeaufsichtigten Lauf.
+- Session-Bootstrap für einen unbeaufsichtigten Lauf der Oberflächentests.
 - Generische NovaWindows-Test-Library statt einzelner Beispiel-Workflows.
 - Reporting.
 - Weitere Performance-Optimierung, insbesondere Reduktion der
