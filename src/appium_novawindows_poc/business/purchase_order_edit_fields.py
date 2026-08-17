@@ -38,10 +38,7 @@ class PurchaseOrderEditFields:
         vendor = self.vendor
         order_status = self.order_status
 
-        if (
-            not self.order_date or not self.ship_date
-            or vendor is None or order_status is None
-        ):
+        if not self.order_date or not self.ship_date or vendor is None or order_status is None:
             raise ValueError(
                 "Order Date, Ship Date, Vendor und Order Status "
                 "muessen vor dem Schreiben gesetzt sein."
@@ -64,8 +61,10 @@ class PurchaseOrderEditFields:
 
     def has_missing_values(self) -> bool:
         return (
-            not self.order_date or not self.ship_date
-            or self.vendor is None or self.order_status is None
+            not self.order_date
+            or not self.ship_date
+            or self.vendor is None
+            or self.order_status is None
         )
 
     def shares_any_field_with(self, other: "PurchaseOrderEditFields") -> bool:

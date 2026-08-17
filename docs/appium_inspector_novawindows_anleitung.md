@@ -280,8 +280,7 @@ Beispiel für die Auswahl eines ComboBox-Items über das UIA-SelectionPattern:
 ```python
 item = combo.find_element(
     "xpath",
-    ".//ListItem[@ClassName='RadComboBoxItem']"
-    "[@Name='OVERSEAS - DELUXE']",
+    ".//ListItem[@ClassName='RadComboBoxItem'][@Name='OVERSEAS - DELUXE']",
 )
 
 driver.execute_script("windows: select", item)

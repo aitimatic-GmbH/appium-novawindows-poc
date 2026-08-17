@@ -7,10 +7,7 @@ from appium_novawindows_poc.settings import Settings
 
 def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
     if not settings.windows_app_process_name:
-        raise RuntimeError(
-            "WINDOWS_APP_PROCESS_NAME ist nicht gesetzt. "
-            "Bitte .env prüfen."
-        )
+        raise RuntimeError("WINDOWS_APP_PROCESS_NAME ist nicht gesetzt. Bitte .env prüfen.")
 
     if not settings.windows_app_title:
         raise RuntimeError(

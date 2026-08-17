@@ -78,10 +78,7 @@ def test_smoke_click_safe_main_window_element():
 
         # Zusatzdiagnose (nie testentscheidend): Pager-Wert vorher/nachher.
         pager_value_after = main_window.pager_value_best_effort()
-        print(
-            f"\nDataPagerTextBox vorher: {pager_value_before!r}, "
-            f"nachher: {pager_value_after!r}"
-        )
+        print(f"\nDataPagerTextBox vorher: {pager_value_before!r}, nachher: {pager_value_after!r}")
 
     finally:
         if driver is not None:

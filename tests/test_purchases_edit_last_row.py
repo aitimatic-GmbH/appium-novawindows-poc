@@ -1,6 +1,7 @@
 """Haupttest fuer das Purchases-Szenario: aendert Order Date, Ship Date, Vendor
 und Order Status der letzten Zeile der letzten Seite (Row_19 auf Seite 50) mit
 echtem OK-Speichern und stellt die alten Werte nachweisbar wieder her."""
+
 import contextlib
 import xml.etree.ElementTree as ElementTree
 
@@ -56,9 +57,7 @@ EXPECTED_OLD_VALUES = PurchaseOrderEditFields(
     order_status="Complete",
 )
 
-PURCHASES_TREE_ITEM_XPATH = (
-    ".//TreeItem[@ClassName='RadTreeViewItem'][@Name='Purchases']"
-)
+PURCHASES_TREE_ITEM_XPATH = ".//TreeItem[@ClassName='RadTreeViewItem'][@Name='Purchases']"
 PURCHASES_BREADCRUMB_TEXT_XPATH = (
     "//Custom[@ClassName='RadBreadcrumbBarItem']//Text[@Name='Purchases']"
 )
@@ -68,12 +67,8 @@ TARGET_ROW_XPATH = (
     f".//DataItem[@ClassName='GridViewRow']"
     f"[@AutomationId='{TARGET_ROW_AUTOMATION_ID}'][@Name='{HEADER_ROW_NAME}']"
 )
-ORDER_DETAILS_ROW_XPATH = (
-    f".//DataItem[@ClassName='GridViewRow'][@Name='{DETAIL_ROW_NAME}']"
-)
-INNER_DATA_ITEM_XPATH = (
-    f"./DataItem[@ClassName='{HEADER_ROW_NAME} data item']"
-)
+ORDER_DETAILS_ROW_XPATH = f".//DataItem[@ClassName='GridViewRow'][@Name='{DETAIL_ROW_NAME}']"
+INNER_DATA_ITEM_XPATH = f"./DataItem[@ClassName='{HEADER_ROW_NAME} data item']"
 DIALOG_XPATH = "//Window[@Name='Edit Purchase Order']"
 ORDER_DATE_FIELD_XPATH = ".//Edit[@Name='OrderDate']"
 SHIP_DATE_FIELD_XPATH = ".//Edit[@Name='ShipDate']"
@@ -101,9 +96,7 @@ def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
     if navigation_method is not None:
         wait_until_app_ready(driver, settings)
         try:
-            wait_until_true(
-                purchases_breadcrumb_present, PURCHASES_VIEW_TIMEOUT_SECONDS, "timeout"
-            )
+            wait_until_true(purchases_breadcrumb_present, PURCHASES_VIEW_TIMEOUT_SECONDS, "timeout")
         except AssertionError:
             print(
                 "\nwindows: select blieb ohne nachweisbaren Ansichtswechsel, "
@@ -119,9 +112,7 @@ def _navigate_to_purchases(driver, settings, main_window: MainWindow) -> None:
         navigation_method = "element.click()"
         wait_until_app_ready(driver, settings)
         try:
-            wait_until_true(
-                purchases_breadcrumb_present, PURCHASES_VIEW_TIMEOUT_SECONDS, "timeout"
-            )
+            wait_until_true(purchases_breadcrumb_present, PURCHASES_VIEW_TIMEOUT_SECONDS, "timeout")
         except AssertionError:
             fail_with_dump(
                 driver,
@@ -194,10 +185,7 @@ def _jump_to_last_page(driver, main_window: MainWindow, phase_clock: PhaseClock)
         )
 
     pager_last = pager_seen["value"]
-    print(
-        f"Sprung auf letzte Seite: Pager vorher {pager_start!r}, "
-        f"nachher {pager_last!r}"
-    )
+    print(f"Sprung auf letzte Seite: Pager vorher {pager_start!r}, nachher {pager_last!r}")
     if pager_last != EXPECTED_LAST_PAGE:
         fail_with_dump(
             driver,
@@ -262,9 +250,7 @@ def _verify_order_details(driver, main_window: MainWindow) -> None:
             target_rows = main_window.grid().find_elements("xpath", TARGET_ROW_XPATH)
             if len(target_rows) != 1:
                 return False
-            detail_rows = target_rows[0].find_elements(
-                "xpath", ORDER_DETAILS_ROW_XPATH
-            )
+            detail_rows = target_rows[0].find_elements("xpath", ORDER_DETAILS_ROW_XPATH)
         except Exception:
             return False
         found["count"] = len(detail_rows)
@@ -272,9 +258,7 @@ def _verify_order_details(driver, main_window: MainWindow) -> None:
 
     for attempt in (1, 2):
         try:
-            wait_until_true(
-                details_complete, ORDER_DETAILS_TIMEOUT_SECONDS, "timeout"
-            )
+            wait_until_true(details_complete, ORDER_DETAILS_TIMEOUT_SECONDS, "timeout")
             break
         except AssertionError:
             if attempt == 1:
@@ -299,14 +283,10 @@ def _verify_order_details(driver, main_window: MainWindow) -> None:
         target_row = main_window.grid().find_element("xpath", TARGET_ROW_XPATH)
         name_texts = target_row.find_elements(
             "xpath",
-            ORDER_DETAILS_ROW_XPATH
-            + "//Custom[contains(@Name, 'Column Display Index: 0')]/Text",
+            ORDER_DETAILS_ROW_XPATH + "//Custom[contains(@Name, 'Column Display Index: 0')]/Text",
         )
         article_names = [_read_text_best_effort(text) for text in name_texts]
-        print(
-            f"Order Details verifiziert: {found['count']} Positionen, "
-            f"Artikel: {article_names}"
-        )
+        print(f"Order Details verifiziert: {found['count']} Positionen, Artikel: {article_names}")
     except Exception as error:
         print(f"Order-Details-Artikelnamen nicht lesbar (nur Protokoll): {error}")
 
@@ -335,9 +315,7 @@ def _open_edit_dialog_for_target_row(
             main_window, CLICK_RETRY_ATTEMPTS, EDIT_ENABLED_TIMEOUT_SECONDS
         )
     except AssertionError as error:
-        artifact_path = write_diagnostic_artifact(
-            driver, "erp_purchases_edit_dialog_failure"
-        )
+        artifact_path = write_diagnostic_artifact(driver, "erp_purchases_edit_dialog_failure")
         raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
     phase_clock.log(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
@@ -380,9 +358,9 @@ def _restore_combo_single_attempt(
         return len(current_combo.find_elements("xpath", option_xpath)) == 1
 
     wait_until_true(option_present, COMBO_OPTION_TIMEOUT_SECONDS, "timeout")
-    option_item = edit_dialog.element().find_element(
-        "xpath", combo_xpath
-    ).find_element("xpath", option_xpath)
+    option_item = (
+        edit_dialog.element().find_element("xpath", combo_xpath).find_element("xpath", option_xpath)
+    )
     driver.execute_script("windows: select", option_item)
 
 
@@ -422,17 +400,13 @@ def _restore_once_best_effort(
             (ORDER_STATUS_COMBO_XPATH, old_values.order_status),
         ):
             if old_value:
-                _restore_combo_single_attempt(
-                    driver, edit_dialog, combo_xpath, old_value
-                )
+                _restore_combo_single_attempt(driver, edit_dialog, combo_xpath, old_value)
         shift_focus_with_tab(driver)
 
         dialog = edit_dialog.element()
         ok_buttons = dialog.find_elements("xpath", EditRecordDialog.OK_BUTTON_XPATH)
         if ok_buttons and ok_buttons[0].is_enabled():
-            edit_dialog.invoke_ok_and_wait_closed(
-                ok_buttons[0], DIALOG_CLOSE_TIMEOUT_SECONDS
-            )
+            edit_dialog.invoke_ok_and_wait_closed(ok_buttons[0], DIALOG_CLOSE_TIMEOUT_SECONDS)
             print("Restore-Versuch im finally: alte Werte gesetzt und OK ausgeloest.")
         else:
             edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
@@ -469,8 +443,13 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
         main_window = MainWindow(driver)
         edit_dialog = EditRecordDialog(driver, DIALOG_XPATH)
         dialog_actions = EditRecordDialogActions(
-            driver, edit_dialog, phase_clock, "erp_purchases",
-            CLICK_RETRY_ATTEMPTS, OK_ENABLED_TIMEOUT_SECONDS, DIALOG_CLOSE_TIMEOUT_SECONDS,
+            driver,
+            edit_dialog,
+            phase_clock,
+            "erp_purchases",
+            CLICK_RETRY_ATTEMPTS,
+            OK_ENABLED_TIMEOUT_SECONDS,
+            DIALOG_CLOSE_TIMEOUT_SECONDS,
         )
 
         _navigate_to_purchases(driver, settings, main_window)
@@ -506,7 +485,9 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
 
         # Neue Werte setzen, direkt verifizieren, speichern.
         dialog_actions.write_and_save(
-            NEW_VALUES, "Neue Werte", "erp_purchases_write_new_values_failure",
+            NEW_VALUES,
+            "Neue Werte",
+            "erp_purchases_write_new_values_failure",
             on_ok_enabled=lambda: state.update(first_ok_done=True),
         )
 
@@ -525,7 +506,9 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
             )
 
         # Alte Werte wiederherstellen und speichern.
-        dialog_actions.write_and_save(old_values, "Alte Werte", "erp_purchases_write_old_values_failure")
+        dialog_actions.write_and_save(
+            old_values, "Alte Werte", "erp_purchases_write_old_values_failure"
+        )
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 3")

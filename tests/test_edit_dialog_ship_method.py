@@ -22,9 +22,7 @@ CLICK_RETRY_ATTEMPTS = 3
 
 DIALOG_XPATH = "//Window[@Name='Edit Sales Order']"
 SHIP_METHOD_COMBO_XPATH = ".//ComboBox[@Name='ShipMethodID']"
-INNER_DATA_ITEM_XPATH = (
-    "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
-)
+INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
 
 # Doppel-Anker zur eindeutigen Zeilenidentifikation (Account Number allein
 # kann im Grid mehrfach vorkommen, siehe Ruecksprache mit dem Auftraggeber) -
@@ -34,6 +32,7 @@ TARGET_ACCOUNT_NUMBER_ANCHOR = "10-4030-016348"
 
 # Editiertes Feld: Ship-Method-ComboBox im Dialog.
 TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
+
 
 def _read_field_value_best_effort(element) -> str | None:
     # Nur Diagnose, nie testentscheidend - Muster aus
@@ -171,8 +170,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         target_row = _find_row_by_order_number(main_window, TARGET_ORDER_NUMBER)
 
         assert target_row is not None, (
-            f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} wurde auf Seite 2 "
-            "nicht gefunden."
+            f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} wurde auf Seite 2 nicht gefunden."
         )
 
         account_number_on_row = _read_grid_cell_text(target_row, 4)
@@ -195,9 +193,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 main_window, CLICK_RETRY_ATTEMPTS, EDIT_DIALOG_OPEN_TIMEOUT_SECONDS
             )
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(
-                driver, "erp_edit_dialog_open_failure"
-            )
+            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_open_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         ship_method_combo = RadComboBox(
@@ -216,24 +212,16 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         except AssertionError as error:
             with contextlib.suppress(Exception):
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-            artifact_path = _write_diagnostic_artifact(
-                driver, "erp_ship_method_dropdown_failure"
-            )
-            raise AssertionError(
-                f"{error} Diagnose-Dump: {artifact_path}"
-            ) from error
+            artifact_path = _write_diagnostic_artifact(driver, "erp_ship_method_dropdown_failure")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         ActionChains(driver).send_keys(Keys.TAB).perform()
 
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(
-                driver, "erp_edit_dialog_okwait_failure"
-            )
-            raise AssertionError(
-                f"{error} Diagnose-Dump: {artifact_path}"
-            ) from error
+            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_okwait_failure")
+            raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         assert ok_button.is_enabled(), (
             "OK-Button ist laut erneuter Pruefung nach dem Wait nicht "
@@ -248,13 +236,9 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         )
 
         try:
-            edit_dialog.close_via_cancel(
-                CLICK_RETRY_ATTEMPTS, EDIT_DIALOG_OPEN_TIMEOUT_SECONDS
-            )
+            edit_dialog.close_via_cancel(CLICK_RETRY_ATTEMPTS, EDIT_DIALOG_OPEN_TIMEOUT_SECONDS)
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(
-                driver, "erp_edit_dialog_cancel_failure"
-            )
+            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_cancel_failure")
             raise AssertionError(
                 f"{error} Moeglicherweise erscheint ein Bestaetigungsdialog. "
                 "Kein automatischer OK/Yes-Klick, um keine Datenaenderung zu "

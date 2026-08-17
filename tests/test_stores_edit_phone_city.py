@@ -1,6 +1,7 @@
 """Haupttest fuer das Stores-Szenario: aendert Phone und City des freigegebenen
 Datensatzes AW00000254 mit echtem OK-Speichern und stellt die alten Werte
 anschliessend nachweisbar wieder her (drittes Oeffnen als Verifikation)."""
+
 import contextlib
 
 import pytest
@@ -38,16 +39,11 @@ NEW_VALUES = StoreContactDetails(phone="999-555-0100", city="Teststadt")
 EXPECTED_OLD_VALUES = StoreContactDetails(phone="449-555-0176", city="Bellevue")
 
 STORES_TREE_ITEM_XPATH = ".//TreeItem[@ClassName='RadTreeViewItem'][@Name='Stores']"
-STORES_BREADCRUMB_TEXT_XPATH = (
-    "//Custom[@ClassName='RadBreadcrumbBarItem']//Text[@Name='Stores']"
-)
+STORES_BREADCRUMB_TEXT_XPATH = "//Custom[@ClassName='RadBreadcrumbBarItem']//Text[@Name='Stores']"
 TARGET_ROW_XPATH = (
-    f".//Text[@Name='{TARGET_ACCOUNT_NUMBER}']"
-    "/ancestor::DataItem[@ClassName='GridViewRow']"
+    f".//Text[@Name='{TARGET_ACCOUNT_NUMBER}']/ancestor::DataItem[@ClassName='GridViewRow']"
 )
-INNER_DATA_ITEM_XPATH = (
-    f"./DataItem[@ClassName='{TARGET_COMPANY_NAME} data item']"
-)
+INNER_DATA_ITEM_XPATH = f"./DataItem[@ClassName='{TARGET_COMPANY_NAME} data item']"
 DIALOG_XPATH = "//Window[@Name='Edit Store']"
 
 
@@ -71,9 +67,7 @@ def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
     if navigation_method is not None:
         wait_until_app_ready(driver, settings)
         try:
-            wait_until_true(
-                stores_breadcrumb_present, STORES_VIEW_TIMEOUT_SECONDS, "timeout"
-            )
+            wait_until_true(stores_breadcrumb_present, STORES_VIEW_TIMEOUT_SECONDS, "timeout")
         except AssertionError:
             print(
                 "\nwindows: select blieb ohne nachweisbaren Ansichtswechsel, "
@@ -89,9 +83,7 @@ def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
         navigation_method = "element.click()"
         wait_until_app_ready(driver, settings)
         try:
-            wait_until_true(
-                stores_breadcrumb_present, STORES_VIEW_TIMEOUT_SECONDS, "timeout"
-            )
+            wait_until_true(stores_breadcrumb_present, STORES_VIEW_TIMEOUT_SECONDS, "timeout")
         except AssertionError:
             fail_with_dump(
                 driver,
@@ -175,8 +167,7 @@ def _advance_pages(driver, main_window: MainWindow, phase_clock: PhaseClock) -> 
 
         pager_current = pager_seen["value"]
         print(
-            f"Seitenwechsel {step_number}: Pager vorher {pager_before!r}, "
-            f"nachher {pager_current!r}"
+            f"Seitenwechsel {step_number}: Pager vorher {pager_before!r}, nachher {pager_current!r}"
         )
         phase_clock.log(f"Seitenwechsel {step_number}")
 
@@ -199,9 +190,7 @@ def _find_target_row(driver, main_window: MainWindow):
         return False
 
     try:
-        wait_until_true(
-            exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout"
-        )
+        wait_until_true(exactly_one_row_found, TARGET_ROW_TIMEOUT_SECONDS, "timeout")
     except AssertionError:
         fail_with_dump(
             driver,
@@ -224,7 +213,10 @@ def _find_target_row(driver, main_window: MainWindow):
 
 
 def _open_edit_dialog_for_target_row(
-    driver, main_window: MainWindow, edit_dialog: EditRecordDialog, phase_clock: PhaseClock,
+    driver,
+    main_window: MainWindow,
+    edit_dialog: EditRecordDialog,
+    phase_clock: PhaseClock,
     phase_label: str = "Öffnen",
 ):
     # Zeile wird bei jedem Öffnen frisch gesucht und pattern-basiert selektiert;
@@ -240,16 +232,17 @@ def _open_edit_dialog_for_target_row(
             main_window, CLICK_RETRY_ATTEMPTS, EDIT_ENABLED_TIMEOUT_SECONDS
         )
     except AssertionError as error:
-        artifact_path = write_diagnostic_artifact(
-            driver, "erp_stores_edit_dialog_failure"
-        )
+        artifact_path = write_diagnostic_artifact(driver, "erp_stores_edit_dialog_failure")
         raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
     phase_clock.log(f"{phase_label}: Zeilenselektion + Edit-Dialog offen")
 
 
 def _restore_once_best_effort(
-    driver, settings, main_window: MainWindow, edit_dialog: EditRecordDialog,
+    driver,
+    settings,
+    main_window: MainWindow,
+    edit_dialog: EditRecordDialog,
     old_values: StoreContactDetails,
 ) -> None:
     # Sicherheitsnetz nach fehlgeschlagenem Lauf: genau EIN einfacher
@@ -277,9 +270,7 @@ def _restore_once_best_effort(
         dialog = edit_dialog.element()
         ok_buttons = dialog.find_elements("xpath", EditRecordDialog.OK_BUTTON_XPATH)
         if ok_buttons and ok_buttons[0].is_enabled():
-            edit_dialog.invoke_ok_and_wait_closed(
-                ok_buttons[0], DIALOG_CLOSE_TIMEOUT_SECONDS
-            )
+            edit_dialog.invoke_ok_and_wait_closed(ok_buttons[0], DIALOG_CLOSE_TIMEOUT_SECONDS)
             print("Restore-Versuch im finally: alte Werte gesetzt und OK ausgeloest.")
         else:
             edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
@@ -317,8 +308,13 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
         main_window = MainWindow(driver)
         edit_dialog = EditRecordDialog(driver, DIALOG_XPATH)
         dialog_actions = EditRecordDialogActions(
-            driver, edit_dialog, phase_clock, "erp_stores",
-            CLICK_RETRY_ATTEMPTS, OK_ENABLED_TIMEOUT_SECONDS, DIALOG_CLOSE_TIMEOUT_SECONDS,
+            driver,
+            edit_dialog,
+            phase_clock,
+            "erp_stores",
+            CLICK_RETRY_ATTEMPTS,
+            OK_ENABLED_TIMEOUT_SECONDS,
+            DIALOG_CLOSE_TIMEOUT_SECONDS,
         )
 
         _navigate_to_stores(driver, settings, main_window)
@@ -346,7 +342,9 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
 
         # Neue Werte setzen, direkt verifizieren, speichern.
         dialog_actions.write_and_save(
-            NEW_VALUES, "Neue Werte", "erp_stores_write_new_values_failure",
+            NEW_VALUES,
+            "Neue Werte",
+            "erp_stores_write_new_values_failure",
             on_ok_enabled=lambda: state.update(first_ok_done=True),
         )
 
@@ -364,7 +362,9 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             )
 
         # Alte Werte wiederherstellen und speichern.
-        dialog_actions.write_and_save(old_values, "Wiederherstellung", "erp_stores_write_old_values_failure")
+        dialog_actions.write_and_save(
+            old_values, "Wiederherstellung", "erp_stores_write_old_values_failure"
+        )
 
         # Drittes Oeffnen: Wiederherstellung verifizieren, dann Cancel.
         _open_edit_dialog_for_target_row(driver, main_window, edit_dialog, phase_clock, "Oeffnen 3")
@@ -392,7 +392,9 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
             if edit_dialog is not None:
                 edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
                 if state["first_ok_done"] and not state["restore_verified"]:
-                    _restore_once_best_effort(driver, settings, main_window, edit_dialog, old_values)
+                    _restore_once_best_effort(
+                        driver, settings, main_window, edit_dialog, old_values
+                    )
             with contextlib.suppress(Exception):
                 driver.quit()
 

@@ -18,9 +18,7 @@ from tests._waits import wait_until_true
 
 EDIT_ENABLED_TIMEOUT_SECONDS = 20
 DIALOG_INDICATOR_TIMEOUT_SECONDS = 20
-INNER_DATA_ITEM_XPATH = (
-    "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
-)
+INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
 
 
 def _find_strong_dialog_indicators(page_source: str, baseline_window_count: int) -> list[str]:

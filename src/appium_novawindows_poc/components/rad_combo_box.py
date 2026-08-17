@@ -45,10 +45,7 @@ class RadComboBox:
         self, option_name: str, timeout_seconds: int, max_attempts: int
     ) -> None:
         def option_present() -> bool:
-            return (
-                len(self._element().find_elements("xpath", f".//*[@Name='{option_name}']"))
-                >= 1
-            )
+            return len(self._element().find_elements("xpath", f".//*[@Name='{option_name}']")) >= 1
 
         def option_selected() -> bool:
             return self.read_selected_item() == option_name
@@ -71,9 +68,7 @@ class RadComboBox:
                     "der ComboBox nicht im UIA-Tree erschienen.",
                 )
 
-                option_locator = (
-                    ".//ListItem[@ClassName='RadComboBoxItem']" f"[@Name='{option_name}']"
-                )
+                option_locator = f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
                 option_items = self._element().find_elements("xpath", option_locator)
                 if len(option_items) != 1:
                     raise AssertionError(
@@ -86,8 +81,7 @@ class RadComboBox:
                 _wait_until_true(
                     option_selected,
                     timeout_seconds,
-                    f"Option wurde ueber windows: select nicht auf "
-                    f"{option_name!r} gesetzt.",
+                    f"Option wurde ueber windows: select nicht auf {option_name!r} gesetzt.",
                 )
                 return
             except Exception as error:

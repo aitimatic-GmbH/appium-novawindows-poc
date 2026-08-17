@@ -14,8 +14,7 @@ from appium_novawindows_poc.pages import EditRecordDialog
 
 
 class _EditRecordValues(Protocol):
-    def write_to(self, driver, edit_dialog: EditRecordDialog) -> None:
-        ...
+    def write_to(self, driver, edit_dialog: EditRecordDialog) -> None: ...
 
 
 class EditRecordDialogActions:
@@ -57,7 +56,9 @@ class EditRecordDialogActions:
         try:
             ok_button = self.edit_dialog.wait_ok_enabled(self.ok_enabled_timeout_seconds)
         except AssertionError as error:
-            artifact_path = write_diagnostic_artifact(self.driver, f"{self.artifact_prefix}_ok_disabled")
+            artifact_path = write_diagnostic_artifact(
+                self.driver, f"{self.artifact_prefix}_ok_disabled"
+            )
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         self.phase_clock.log(f"{phase_label}: Werte setzen + OK enabled")
 
@@ -67,15 +68,21 @@ class EditRecordDialogActions:
         try:
             self.edit_dialog.invoke_ok_and_wait_closed(ok_button, self.dialog_close_timeout_seconds)
         except AssertionError as error:
-            artifact_path = write_diagnostic_artifact(self.driver, f"{self.artifact_prefix}_ok_failure")
+            artifact_path = write_diagnostic_artifact(
+                self.driver, f"{self.artifact_prefix}_ok_failure"
+            )
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         print(f"{phase_label} gespeichert: {values!r}")
         self.phase_clock.log(f"{phase_label}: OK speichern + Dialog zu")
 
     def cancel(self, phase_label: str) -> None:
         try:
-            self.edit_dialog.close_via_cancel(self.click_retry_attempts, self.dialog_close_timeout_seconds)
+            self.edit_dialog.close_via_cancel(
+                self.click_retry_attempts, self.dialog_close_timeout_seconds
+            )
         except AssertionError as error:
-            artifact_path = write_diagnostic_artifact(self.driver, f"{self.artifact_prefix}_cancel_failure")
+            artifact_path = write_diagnostic_artifact(
+                self.driver, f"{self.artifact_prefix}_cancel_failure"
+            )
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
         self.phase_clock.log(phase_label)
