@@ -24,7 +24,7 @@ def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
         last_seen = "\n".join(str(candidate) for candidate in candidates)
 
         for candidate in candidates:
-            # Nur die selbst gestartete Prozess-Instanz akzeptieren - sonst
+            # Nur die selbst gestartete Prozess-Instanz akzeptieren, sonst
             # kann bei einer verwaisten Altinstanz mit passendem Fenstertitel
             # das falsche (nicht sichtbare) Fenster attached werden.
             if int(candidate.get("Id", "0")) != process_id:

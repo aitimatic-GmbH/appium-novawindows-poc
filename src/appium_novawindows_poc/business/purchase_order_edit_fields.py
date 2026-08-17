@@ -41,7 +41,7 @@ class PurchaseOrderEditFields:
         if not self.order_date or not self.ship_date or vendor is None or order_status is None:
             raise ValueError(
                 "Order Date, Ship Date, Vendor und Order Status "
-                "muessen vor dem Schreiben gesetzt sein."
+                "müssen vor dem Schreiben gesetzt sein."
             )
 
         edit_dialog.set_field_value_and_verify(ORDER_DATE_FIELD_XPATH, self.order_date)

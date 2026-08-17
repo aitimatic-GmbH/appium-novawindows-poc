@@ -14,7 +14,7 @@ PREVIOUS_ENABLED_TIMEOUT_SECONDS = 20
 
 def test_smoke_click_safe_main_window_element():
     # Locator: accessibility id "MoveToNextPageButton" (siehe
-    # docs/ERP.Client_locator_candidates.md, Smoke-Test-Empfehlung Prio 1) -
+    # docs/ERP.Client_locator_candidates.md, Smoke-Test-Empfehlung Prio 1);
     # eindeutige AutomationId, enabled/nicht offscreen, geringe Nebenwirkung
     # (blättert nur eine Grid-Seite weiter, kein Dialog/Close).
     driver = None
@@ -39,8 +39,8 @@ def test_smoke_click_safe_main_window_element():
 
         pager_value_before = main_window.pager_value_best_effort()
 
-        # windows: invoke statt Mausklick, damit der Test unabhaengig von
-        # Aufloesung, Skalierung und Fenstergroesse ist.
+        # windows: invoke statt Mausklick, damit der Test unabhängig von
+        # Auflösung, Skalierung und Fenstergröße ist.
         driver.execute_script("windows: invoke", next_page_button)
 
         assert driver.session_id is not None
@@ -70,7 +70,7 @@ def test_smoke_click_safe_main_window_element():
                 previous_page_button_is_enabled,
                 PREVIOUS_ENABLED_TIMEOUT_SECONDS,
                 "MoveToPreviousPageButton wurde auch nach dem zweiten Invoke "
-                "nicht enabled - Seitenwechsel unwirksam.",
+                "nicht enabled: Seitenwechsel unwirksam.",
             )
 
         previous_page_button = main_window.previous_page_button()

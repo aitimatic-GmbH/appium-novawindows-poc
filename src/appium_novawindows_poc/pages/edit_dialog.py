@@ -39,7 +39,7 @@ class EditRecordDialog:
 
         raise AssertionError(
             f"Dialog ({self._dialog_xpath}) wurde nach {retry_attempts} "
-            f"Edit-Invoke-Versuchen nicht geoeffnet. Letzter Fehler: {last_error}"
+            f"Edit-Invoke-Versuchen nicht geöffnet. Letzter Fehler: {last_error}"
         )
 
     def get_field_value(self, field_xpath: str) -> str:
@@ -58,8 +58,8 @@ class EditRecordDialog:
             )
 
     def wait_ok_enabled(self, timeout_seconds: int):
-        # PART_CommitButton ist ohne Aenderung disabled - enabled ist zugleich
-        # der Nachweis, dass die App die Feldaenderung registriert hat.
+        # PART_CommitButton ist ohne Änderung disabled: enabled ist zugleich
+        # der Nachweis, dass die App die Feldänderung registriert hat.
         def ok_enabled() -> bool:
             try:
                 ok_buttons = self.element().find_elements("xpath", self.OK_BUTTON_XPATH)
@@ -70,21 +70,21 @@ class EditRecordDialog:
         wait_until_true(
             ok_enabled,
             timeout_seconds,
-            "OK-Button (PART_CommitButton) wurde nicht enabled - Aenderung "
+            "OK-Button (PART_CommitButton) wurde nicht enabled: Änderung "
             "von der App nicht registriert.",
         )
         return self.element().find_element("xpath", self.OK_BUTTON_XPATH)
 
     def invoke_ok_and_wait_closed(self, ok_button, timeout_seconds: int) -> None:
         # Der Grid-Refresh nach dem Speichern wird hier nicht abgewartet,
-        # sondern vom Zielzeilen-Poll des naechsten Oeffnens.
+        # sondern vom Zielzeilen-Poll des nächsten Öffnens.
         self._driver.execute_script("windows: invoke", ok_button)
 
         wait_until_true(
             lambda: not self.is_present(),
             timeout_seconds,
-            "Dialog blieb nach OK-Invoke offen - moeglicherweise ein "
-            "unbekannter Folgedialog; es wird nichts automatisch bestaetigt.",
+            "Dialog blieb nach OK-Invoke offen, möglicherweise ein "
+            "unbekannter Folgedialog; es wird nichts automatisch bestätigt.",
         )
 
     def close_via_cancel(self, retry_attempts: int, timeout_seconds: int) -> None:
@@ -102,10 +102,10 @@ class EditRecordDialog:
             except AssertionError:
                 continue
 
-        raise AssertionError("Dialog liess sich per Cancel-Invoke nicht schliessen.")
+        raise AssertionError("Dialog ließ sich per Cancel-Invoke nicht schließen.")
 
     def close_best_effort(self, timeout_seconds: int) -> None:
-        # Ohne Datenaenderung schliessen: erst Cancel, sonst ESC.
+        # Ohne Datenänderung schließen: erst Cancel, sonst ESC.
         try:
             if not self.is_present():
                 return

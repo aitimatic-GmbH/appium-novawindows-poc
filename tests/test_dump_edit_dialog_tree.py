@@ -24,7 +24,7 @@ INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrde
 def _find_strong_dialog_indicators(page_source: str, baseline_window_count: int) -> list[str]:
     # Starke Indikatoren laut Locator-Katalog/Plan: Cancel-Button, OK-Button,
     # neue Window-Struktur, oder OK/Cancel kombiniert mit Account Number.
-    # "Account" allein zaehlt NICHT (kommt schon im Grid/Hauptfenster vor).
+    # "Account" allein zählt NICHT (kommt schon im Grid/Hauptfenster vor).
     root = ElementTree.fromstring(page_source)
 
     cancel_buttons = [element for element in root.iter("Button") if element.get("Name") == "Cancel"]
@@ -46,7 +46,7 @@ def _find_strong_dialog_indicators(page_source: str, baseline_window_count: int)
 
 
 def _close_dialog_best_effort(driver) -> None:
-    # Ohne Datenaenderung schliessen: erst Cancel, sonst ESC. Kein OK-Klick.
+    # Ohne Datenänderung schließen: erst Cancel, sonst ESC. Kein OK-Klick.
     try:
         cancel_button = driver.find_element("xpath", "//Button[@Name='Cancel']")
         driver.execute_script("windows: invoke", cancel_button)
@@ -59,7 +59,7 @@ def _close_dialog_best_effort(driver) -> None:
 
 
 def test_dump_edit_dialog_tree_for_locator_discovery():
-    # Discovery-Test: Edit-Dialog oeffnen und dessen page_source als Artefakt
+    # Discovery-Test: Edit-Dialog öffnen und dessen page_source als Artefakt
     # dumpen, um Dialog-Locatoren (Account Number, OK, Cancel) zu gewinnen.
     # Offene Punkte im Katalog: 13.2 (Dialog nie gedumpt), 13.7 (Zeilenauswahl).
     driver = None
@@ -84,14 +84,14 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
 
         edit_button = main_window.edit_button()
         assert not edit_button.is_enabled(), (
-            "Edit-Button war ohne Zeilenauswahl bereits enabled - "
-            "widerspricht Katalog Abschnitt 9, bitte Vorbedingung pruefen."
+            "Edit-Button war ohne Zeilenauswahl bereits enabled, das "
+            "widerspricht Katalog Abschnitt 9, bitte Vorbedingung prüfen."
         )
 
         grid = main_window.grid()
         first_row = grid.find_element("xpath", ".//DataItem[1]")
-        # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
-        # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
+        # Selektion über das SelectionItemPattern des inneren Data-Items statt
+        # Maus-Klick; das ist unabhängig von Auflösung, Skalierung und Scroll-Position.
         inner_data_item = first_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
         driver.execute_script("windows: select", inner_data_item)
 
@@ -118,9 +118,9 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
         except AssertionError:
             dialog_detected = False
 
-        # Dump IMMER schreiben - auch ohne Dialog-Indikatoren liefert ein roter
+        # Dump IMMER schreiben: auch ohne Dialog-Indikatoren liefert ein roter
         # Lauf so verwertbares Material (Dialog gar nicht im Tree vs. nur
-        # Indikatoren falsch gewaehlt).
+        # Indikatoren falsch gewählt).
         artifacts_dir = Path("artifacts")
         artifacts_dir.mkdir(exist_ok=True)
 

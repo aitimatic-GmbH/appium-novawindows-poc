@@ -14,7 +14,7 @@ from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 
-# Obergrenze fuer den Fehlerfall (wait_until_true pollt, kein Fixdelay).
+# Obergrenze für den Fehlerfall (wait_until_true pollt, kein Fixdelay).
 EDIT_DIALOG_OPEN_TIMEOUT_SECONDS = 5
 SHIP_METHOD_OPTION_TIMEOUT_SECONDS = 5
 OK_ENABLED_TIMEOUT_SECONDS = 5
@@ -25,7 +25,7 @@ SHIP_METHOD_COMBO_XPATH = ".//ComboBox[@Name='ShipMethodID']"
 INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"
 
 # Doppel-Anker zur eindeutigen Zeilenidentifikation (Account Number allein
-# kann im Grid mehrfach vorkommen, siehe Ruecksprache mit dem Auftraggeber) -
+# kann im Grid mehrfach vorkommen, siehe Rücksprache mit dem Auftraggeber);
 # wird NICHT editiert, dient nur der Suche.
 TARGET_ORDER_NUMBER = "SO43774"
 TARGET_ACCOUNT_NUMBER_ANCHOR = "10-4030-016348"
@@ -35,7 +35,7 @@ TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
 
 
 def _read_field_value_best_effort(element) -> str | None:
-    # Nur Diagnose, nie testentscheidend - Muster aus
+    # Nur Diagnose, nie testentscheidend. Muster aus
     # tests/test_smoke_click.py::_read_pager_value_best_effort.
     try:
         value = element.text
@@ -69,7 +69,7 @@ def _write_diagnostic_artifact(driver, prefix: str) -> Path:
 
 
 def _read_grid_cell_text(row_element, column_display_index: int) -> str | None:
-    # Zellen ueber das Label ihres Custom-Containers identifizieren -
+    # Zellen über das Label ihres Custom-Containers identifizieren:
     # robuster als die Row-relativen Cell_N_x-AutomationIds, die pro Seite
     # neu vergeben werden (Row_0..Row_19 auf jeder Seite).
     text_elements = row_element.find_elements(
@@ -97,9 +97,9 @@ def _find_row_by_order_number(main_window, order_number: str):
 
     if len(cell_texts) != len(rows):
         print(
-            "    Batch-Read Laenge stimmt nicht mit Rows ueberein "
+            "    Batch-Read Länge stimmt nicht mit Rows überein "
             f"({len(cell_texts)} vs. {len(rows)}), falle auf Einzel-Read "
-            "zurueck."
+            "zurück."
         )
         for row_position, row in enumerate(rows):
             cell_text = _read_grid_cell_text(row, 0)
@@ -118,12 +118,12 @@ def _find_row_by_order_number(main_window, order_number: str):
 
 
 def test_edit_dialog_ship_method_enables_ok_and_cancels():
-    # Zieltest: Ueber mehrere Grid-Seiten (Pager) nach einer konkreten Zeile
+    # Zieltest: Über mehrere Grid-Seiten (Pager) nach einer konkreten Zeile
     # suchen (Doppel-Anker Order Number + Account Number, da Account Number
-    # allein mehrfach vorkommen kann) -> Edit-Dialog oeffnen -> OK ist
-    # disabled (Vorbedingung) -> Ship Method per ComboBox aendern -> OK wird
-    # enabled (Wirkungs-Assert) -> Dialog per Cancel schliessen. Kein
-    # OK-Klick, keine Datenaenderung im ERP (siehe
+    # allein mehrfach vorkommen kann) -> Edit-Dialog öffnen -> OK ist
+    # disabled (Vorbedingung) -> Ship Method per ComboBox ändern -> OK wird
+    # enabled (Wirkungs-Assert) -> Dialog per Cancel schließen. Kein
+    # OK-Klick, keine Datenänderung im ERP (siehe
     # docs/ERP.Client_edit_dialog_locator_candidates.md).
     driver = None
     edit_dialog = None
@@ -150,7 +150,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
 
         # Harter Invoke-Wirkungsnachweis wie in test_smoke_click.py:
         # MoveToPreviousPageButton ist auf Seite 1 disabled und muss nach dem
-        # Blaettern enabled sein. Neu finden statt alte Referenz nutzen
+        # Blättern enabled sein. Neu finden statt alte Referenz nutzen
         # (Stale-Element-Vermeidung, siehe test_smoke_click.py).
         previous_page_button = main_window.previous_page_button()
 
@@ -177,12 +177,12 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         assert account_number_on_row == TARGET_ACCOUNT_NUMBER_ANCHOR, (
             f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} hat Account "
             f"Number {account_number_on_row!r}, erwartet "
-            f"{TARGET_ACCOUNT_NUMBER_ANCHOR!r} - Doppel-Anker nicht "
+            f"{TARGET_ACCOUNT_NUMBER_ANCHOR!r}: Doppel-Anker nicht "
             "eindeutig oder falsche Zeile getroffen."
         )
 
-        # Selektion ueber das SelectionItemPattern des inneren Data-Items statt
-        # Maus-Klick; das ist unabhaengig von Aufloesung, Skalierung und Scroll-Position.
+        # Selektion über das SelectionItemPattern des inneren Data-Items statt
+        # Maus-Klick; das ist unabhängig von Auflösung, Skalierung und Scroll-Position.
         inner_data_item = target_row.find_element("xpath", INNER_DATA_ITEM_XPATH)
         driver.execute_script("windows: select", inner_data_item)
         wait_until_app_ready(driver, settings)
@@ -224,8 +224,8 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         assert ok_button.is_enabled(), (
-            "OK-Button ist laut erneuter Pruefung nach dem Wait nicht "
-            "enabled - Wirkungsnachweis fehlgeschlagen."
+            "OK-Button ist laut erneuter Prüfung nach dem Wait nicht "
+            "enabled: Wirkungsnachweis fehlgeschlagen."
         )
 
         ship_method_after = ship_method_combo.read_selected_item()
@@ -240,8 +240,8 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         except AssertionError as error:
             artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_cancel_failure")
             raise AssertionError(
-                f"{error} Moeglicherweise erscheint ein Bestaetigungsdialog. "
-                "Kein automatischer OK/Yes-Klick, um keine Datenaenderung zu "
+                f"{error} Möglicherweise erscheint ein Bestätigungsdialog. "
+                "Kein automatischer OK/Yes-Klick, um keine Datenänderung zu "
                 f"riskieren. Diagnose-Dump: {artifact_path}"
             ) from error
 
