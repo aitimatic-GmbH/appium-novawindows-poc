@@ -65,7 +65,7 @@ Für Anwendungen mit Splash-Screen oder besonderem Working Directory ist es zuve
 Beispiel:
 
 ```powershell
-Set-Location "C:\Users\locad\Anwendungen\ERP.Client_Q26"
+Set-Location "C:\Users\<Benutzer>\Anwendungen\ERP.Client_Q26"
 Start-Process ".\ERP.Client.exe"
 ```
 
@@ -144,7 +144,7 @@ Beispiel für einen Remote-Appium-Server:
 
 | Einstellung | Wert |
 |---|---|
-| Remote Host | `192.168.178.68` |
+| Remote Host | `192.168.0.10` |
 | Remote Port | `4723` |
 | Remote Path | `/` |
 | SSL | deaktiviert |
@@ -187,8 +187,8 @@ Dieser Weg ist nur sinnvoll, wenn NovaWindows das richtige Hauptfenster zuverlä
 {
   "platformName": "Windows",
   "appium:automationName": "NovaWindows",
-  "appium:app": "C:\\Users\\locad\\Anwendungen\\ERP.Client_Q26\\ERP.Client.exe",
-  "appium:appWorkingDir": "C:\\Users\\locad\\Anwendungen\\ERP.Client_Q26",
+  "appium:app": "C:\\Users\\<Benutzer>\\Anwendungen\\ERP.Client_Q26\\ERP.Client.exe",
+  "appium:appWorkingDir": "C:\\Users\\<Benutzer>\\Anwendungen\\ERP.Client_Q26",
   "appium:shouldCloseApp": false
 }
 ```
