@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitsproblem melden
+    url: https://github.com/aitimatic-GmbH/appium-novawindows-poc/security/advisories/new
+    about: Schwachstellen bitte vertraulich melden, nicht als öffentliches Issue.
+  - name: Fragen zum Treiber selbst
+    url: https://github.com/AutomateThePlanet/appium-novawindows-driver/issues
+    about: Der NovaWindows-Treiber ist ein eigenes Projekt und wird dort betreut.

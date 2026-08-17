@@ -1,0 +1,62 @@
+name: Fehlerbericht
+description: Der beschriebene Aufbau verhält sich nicht wie dokumentiert
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für die Meldung. Sicherheitsprobleme bitte nicht hier eintragen,
+        sondern über den in `SECURITY.md` beschriebenen Weg melden.
+
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was ist passiert
+      description: Beobachtetes Verhalten und was stattdessen erwartet wurde.
+    validations:
+      required: true
+
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Schritte zum Nachvollziehen
+      description: Möglichst genau, einschließlich des ausgeführten Befehls.
+      placeholder: |
+        1. Appium-Server gestartet mit ...
+        2. pytest tests/... ausgeführt
+        3. Fehler tritt auf bei ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: ausgabe
+    attributes:
+      label: Ausgabe oder Fehlermeldung
+      description: >-
+        Relevanter Ausschnitt aus der Testausgabe oder dem Serverprotokoll. Wird
+        automatisch als Codeblock dargestellt.
+      render: text
+
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung
+      description: Eingesetzte Versionen.
+      value: |
+        - Windows:
+        - Python:
+        - Node.js:
+        - Appium:
+        - NovaWindows-Treiber:
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: voraussetzungen
+    attributes:
+      label: Voraussetzungen
+      options:
+        - label: Es lief eine aktive, entsperrte interaktive Windows-Desktop-Session
+          required: true
+        - label: Die Einrichtung folgt der README, insbesondere die Werte in der `.env`
+          required: true

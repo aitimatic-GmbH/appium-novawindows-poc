@@ -1,0 +1,27 @@
+name: Frage oder Hinweis
+description: Frage zum Aufbau, Hinweis auf einen Fehler in der Dokumentation, Erfahrungsbericht
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fragen zum Aufbau, zur Treiberwahl und zu den gemessenen Laufzeiten sind
+        willkommen, ebenso Hinweise auf sachliche Fehler in der Dokumentation.
+
+  - type: textarea
+    id: anliegen
+    attributes:
+      label: Anliegen
+      description: >-
+        Bei einem Hinweis auf einen Fehler in der Dokumentation bitte die
+        betroffene Stelle nennen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Zusammenhang
+      description: >-
+        Was bereits versucht oder nachgelesen wurde, und welche Versionen im
+        Einsatz sind, falls das für die Frage eine Rolle spielt.
