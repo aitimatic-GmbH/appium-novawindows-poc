@@ -1,0 +1,35 @@
+# Konfiguration für Ruff als Linter und Formatierer.
+#
+# Bewusst eine eigene Datei statt einer pyproject.toml: das Repository ist kein
+# installierbares Paket, und die bestehende Konvention ist eine
+# Konfigurationsdatei je Werkzeug.
+#
+# Die Zeilenendbehandlung des Formatierers bleibt absichtlich auf der
+# Standardeinstellung. Sie übernimmt die in der jeweiligen Datei vorgefundene
+# Endung. Eine feste Vorgabe auf LF würde lokal unter Windows gegen
+# core.autocrlf arbeiten und die Prüfung dauerhaft rot melden, während sie in
+# der CI grün wäre.
+
+target-version = "py310"
+line-length = 100
+
+# Importwurzeln analog zu pythonpath in pytest.ini: src für das Bibliothekspaket,
+# das Wurzelverzeichnis für das Testpaket tests.
+src = ["src", "."]
+
+[lint]
+# Die Regelgruppen S (Sicherheit) und D (Docstrings) laufen in dieser Runde nur
+# informativ über die Befehlszeile und sind bewusst noch nicht scharf
+# geschaltet.
+select = [
+    "E",   # pycodestyle, Fehler
+    "W",   # pycodestyle, Warnungen
+    "F",   # Pyflakes
+    "I",   # Importsortierung
+    "UP",  # Sprachmodernisierung
+    "B",   # häufige Fehlermuster
+    "SIM", # Vereinfachungen
+]
+
+[lint.isort]
+known-first-party = ["appium_novawindows_poc"]
