@@ -1,6 +1,6 @@
 import time
 import xml.etree.ElementTree as ET
-from typing import Callable
+from collections.abc import Callable
 
 POLL_INTERVAL_SECONDS = 1
 

@@ -1,3 +1,4 @@
+import contextlib
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime
 from pathlib import Path
@@ -47,9 +48,7 @@ def test_dump_ui_tree_for_locator_discovery():
 
     finally:
         if driver is not None:
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)

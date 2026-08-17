@@ -1,10 +1,15 @@
+import contextlib
 from collections.abc import Callable
 from typing import Protocol
 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
-from appium_novawindows_poc.diagnostics import PhaseClock, shift_focus_with_tab, write_diagnostic_artifact
+from appium_novawindows_poc.diagnostics import (
+    PhaseClock,
+    shift_focus_with_tab,
+    write_diagnostic_artifact,
+)
 from appium_novawindows_poc.pages import EditRecordDialog
 
 
@@ -42,10 +47,8 @@ class EditRecordDialogActions:
         try:
             values.write_to(self.driver, self.edit_dialog)
         except AssertionError as error:
-            try:
+            with contextlib.suppress(Exception):
                 ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
-            except Exception:
-                pass
             artifact_path = write_diagnostic_artifact(self.driver, write_failure_artifact_prefix)
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 

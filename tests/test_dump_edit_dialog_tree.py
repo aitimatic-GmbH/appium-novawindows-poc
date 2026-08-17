@@ -1,3 +1,4 @@
+import contextlib
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime
 from pathlib import Path
@@ -55,10 +56,8 @@ def _close_dialog_best_effort(driver) -> None:
     except Exception:
         pass
 
-    try:
+    with contextlib.suppress(Exception):
         ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-    except Exception:
-        pass
 
 
 def test_dump_edit_dialog_tree_for_locator_discovery():
@@ -151,9 +150,7 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
 
     finally:
         if driver is not None:
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)

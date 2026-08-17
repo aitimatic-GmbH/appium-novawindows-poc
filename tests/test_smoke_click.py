@@ -1,3 +1,5 @@
+import contextlib
+
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import MainWindow
@@ -83,9 +85,7 @@ def test_smoke_click_safe_main_window_element():
 
     finally:
         if driver is not None:
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)

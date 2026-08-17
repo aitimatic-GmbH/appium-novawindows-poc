@@ -1,3 +1,4 @@
+import contextlib
 from datetime import datetime
 from pathlib import Path
 
@@ -62,10 +63,8 @@ def _write_diagnostic_artifact(driver, prefix: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = artifacts_dir / f"{prefix}_{timestamp}.xml"
 
-    try:
+    with contextlib.suppress(Exception):
         output_file.write_text(driver.page_source, encoding="utf-8")
-    except Exception:
-        pass
 
     return output_file
 
@@ -215,10 +214,8 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 CLICK_RETRY_ATTEMPTS,
             )
         except AssertionError as error:
-            try:
+            with contextlib.suppress(Exception):
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-            except Exception:
-                pass
             artifact_path = _write_diagnostic_artifact(
                 driver, "erp_ship_method_dropdown_failure"
             )
@@ -274,9 +271,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
             if edit_dialog is not None:
                 edit_dialog.close_best_effort(EDIT_DIALOG_OPEN_TIMEOUT_SECONDS)
 
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)

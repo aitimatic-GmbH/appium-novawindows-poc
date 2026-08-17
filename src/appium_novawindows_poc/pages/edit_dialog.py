@@ -1,3 +1,5 @@
+import contextlib
+
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
@@ -112,7 +114,5 @@ class EditRecordDialog:
             self._driver.execute_script("windows: invoke", cancel_button)
             wait_until_true(lambda: not self.is_present(), timeout_seconds, "timeout")
         except Exception:
-            try:
+            with contextlib.suppress(Exception):
                 ActionChains(self._driver).send_keys(Keys.ESCAPE).perform()
-            except Exception:
-                pass

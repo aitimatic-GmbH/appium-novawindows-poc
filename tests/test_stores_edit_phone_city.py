@@ -1,13 +1,19 @@
 """Haupttest fuer das Stores-Szenario: aendert Phone und City des freigegebenen
 Datensatzes AW00000254 mit echtem OK-Speichern und stellt die alten Werte
 anschliessend nachweisbar wieder her (drittes Oeffnen als Verifikation)."""
+import contextlib
+
 import pytest
 
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.business.store_contact_details import StoreContactDetails
 from appium_novawindows_poc.components.edit_record_dialog_actions import EditRecordDialogActions
 from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
-from appium_novawindows_poc.diagnostics import PhaseClock, shift_focus_with_tab, write_diagnostic_artifact
+from appium_novawindows_poc.diagnostics import (
+    PhaseClock,
+    shift_focus_with_tab,
+    write_diagnostic_artifact,
+)
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
@@ -97,6 +103,19 @@ def _navigate_to_stores(driver, settings, main_window: MainWindow) -> None:
     print(f"\nStores-Navigation per: {navigation_method}")
 
 
+def _pager_changed_predicate(main_window: MainWindow, pager_before, pager_seen: dict):
+    # Als Fabrik ausgelagert, damit der Vergleichswert beim Erzeugen gebunden wird
+    # und nicht erst beim Aufruf aus der Schleife heraus.
+    def pager_changed() -> bool:
+        pager_now = main_window.pager_value_best_effort()
+        if pager_now is not None and pager_now != pager_before:
+            pager_seen["value"] = pager_now
+            return True
+        return False
+
+    return pager_changed
+
+
 def _advance_pages(driver, main_window: MainWindow, phase_clock: PhaseClock) -> None:
     # 4x weiterblaettern; Wirkungsnachweis pro Invoke ausschliesslich ueber den
     # Pager-Wert (in der Discovery als harter Indikator verifiziert).
@@ -114,13 +133,7 @@ def _advance_pages(driver, main_window: MainWindow, phase_clock: PhaseClock) -> 
     for step_number in range(1, PAGES_FORWARD + 1):
         pager_before = pager_current
         pager_seen = {"value": None}
-
-        def pager_changed() -> bool:
-            pager_now = main_window.pager_value_best_effort()
-            if pager_now is not None and pager_now != pager_before:
-                pager_seen["value"] = pager_now
-                return True
-            return False
+        pager_changed = _pager_changed_predicate(main_window, pager_before, pager_seen)
 
         page_advanced = False
         for attempt in (1, 2):
@@ -380,9 +393,7 @@ def test_stores_edit_phone_city_with_ok_save_and_restore():
                 edit_dialog.close_best_effort(DIALOG_CLOSE_TIMEOUT_SECONDS)
                 if state["first_ok_done"] and not state["restore_verified"]:
                     _restore_once_best_effort(driver, settings, main_window, edit_dialog, old_values)
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)

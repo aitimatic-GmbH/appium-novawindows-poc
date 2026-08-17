@@ -1,6 +1,7 @@
 """Haupttest fuer das Purchases-Szenario: aendert Order Date, Ship Date, Vendor
 und Order Status der letzten Zeile der letzten Seite (Row_19 auf Seite 50) mit
 echtem OK-Speichern und stellt die alten Werte nachweisbar wieder her."""
+import contextlib
 import xml.etree.ElementTree as ElementTree
 
 import pytest
@@ -9,7 +10,11 @@ from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.business.purchase_order_edit_fields import PurchaseOrderEditFields
 from appium_novawindows_poc.components.edit_record_dialog_actions import EditRecordDialogActions
 from appium_novawindows_poc.components.rad_grid_row import select_row_via_inner_data_item
-from appium_novawindows_poc.diagnostics import PhaseClock, shift_focus_with_tab, write_diagnostic_artifact
+from appium_novawindows_poc.diagnostics import (
+    PhaseClock,
+    shift_focus_with_tab,
+    write_diagnostic_artifact,
+)
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
@@ -552,9 +557,7 @@ def test_purchases_edit_last_row_with_ok_save_and_restore():
                     _restore_once_best_effort(
                         driver, settings, main_window, edit_dialog, old_values
                     )
-            try:
+            with contextlib.suppress(Exception):
                 driver.quit()
-            except Exception:
-                pass
 
         terminate_windows_app(settings)
