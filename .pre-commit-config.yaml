@@ -1,0 +1,35 @@
+# Prüfungen, die vor jedem Commit laufen.
+#
+# Die Revisionen sind festgenagelt, damit lokal und in der CI dieselbe
+# Konfiguration mit denselben Werkzeugständen läuft. Die hier gepinnte
+# Ruff-Revision entspricht der Version in requirements-dev.txt.
+#
+# Einmalige Einrichtung nach dem Klonen:
+#
+#     pip install -r requirements-dev.txt
+#     pre-commit install
+
+repos:
+  # Ab dieser Revision heißt der Lint-Hook ruff-check; ruff ist dort nur noch
+  # ein veralteter Aliasname auf denselben Aufruf.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Die beiden Hygiene-Hooks arbeiten byteweise und vereinheitlichen keine
+      # Zeilenenden. Dafür ist allein die .gitattributes zuständig.
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-yaml
+      - id: check-merge-conflict
+      # Greift nur bei neu hinzugefügten Dateien und läuft im CI-Lauf über alle
+      # Dateien deshalb praktisch leer. Er bleibt drin, weil er lokal genau dann
+      # greift, wenn er gebraucht wird.
+      - id: check-added-large-files
