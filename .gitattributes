@@ -1,0 +1,4 @@
+# Alle Textdateien werden im Repository mit LF gespeichert, unabhängig von der
+# lokalen core.autocrlf-Einstellung. Die Zeilenenden der Arbeitskopie werden
+# bewusst nicht erzwungen, da ausschließlich unter Windows gearbeitet wird.
+* text=auto
