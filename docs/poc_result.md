@@ -1,7 +1,7 @@
 # POC-Ergebnis
 
 Technischer Nachweis, dass Appium mit dem NovaWindows-Treiber die Zielanwendung
-(Windows, WPF, Telerik) automatisieren kann. Diese Datei fasst die belegten
+(Windows, WPF) automatisieren kann. Diese Datei fasst die belegten
 Ergebnisse des POC zusammen. Die Fähigkeiten sind im versionierten Testcode
 umgesetzt; die Laufzeiten stammen aus manuellen Testläufen in einer aktiven,
 entsperrten Windows-Desktop-Session. Die Oberflächentests sind nicht Teil des
@@ -24,7 +24,7 @@ Testläufen grün.
 | Edit-Dialog öffnen | `test_edit_dialog_ship_method.py`, `test_stores_edit_phone_city.py`, `test_purchases_edit_last_row.py` |
 | Buttons über `windows: invoke` bedienen | Pager, Edit, OK, Cancel |
 | Textfelder über das UIA ValuePattern lesen und setzen | Phone und City in `test_stores_edit_phone_city.py` |
-| Telerik-ComboBox über einen exakten `RadComboBoxItem`-Locator und `windows: select` bedienen | Ship Method, Ship-Method- und Status-Felder in Purchases |
+| ComboBox über einen exakten `RadComboBoxItem`-Locator und `windows: select` bedienen | Ship Method, Ship-Method- und Status-Felder in Purchases |
 | Zustandsänderungen verifizieren (`SelectedItem` über `ItemStatus`, Feldwerte, Enabled-Zustand) | Wirkungs-Asserts in allen fachlichen Tests |
 | Geometrieunabhängig bedienen (`windows: select` und `windows: expand` statt Koordinaten) | `test_edit_dialog_ship_method.py`, Zeilenauswahl über das innere Data-Item |
 | Fehlerfälle mit gezielten Diagnoseartefakten stützen (Dump nur beim endgültigen Fehler) | `_write_diagnostic_artifact` |

@@ -109,7 +109,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump`
 - `docs/`: Projektdokumentation
   - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
-  - `ERP.Client_locator_candidates.md`, `ERP.Client_edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
+  - `main_window_locator_candidates.md`, `edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
   - `poc_result.md`: zusammengefasste POC-Ergebnisse und belegte Laufzeiten
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
 - `artifacts/`: lokale Diagnose-, Discovery- und Fehlerartefakte wie XML-Dumps; der Ordnerinhalt ist gitignored und nicht Teil des Repository-Inhalts, die Tests legen den Ordner bei Bedarf zur Laufzeit an

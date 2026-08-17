@@ -14,7 +14,7 @@ PREVIOUS_ENABLED_TIMEOUT_SECONDS = 20
 
 def test_smoke_click_safe_main_window_element():
     # Locator: accessibility id "MoveToNextPageButton" (siehe
-    # docs/ERP.Client_locator_candidates.md, Smoke-Test-Empfehlung Prio 1);
+    # docs/main_window_locator_candidates.md, Smoke-Test-Empfehlung Prio 1);
     # eindeutige AutomationId, enabled/nicht offscreen, geringe Nebenwirkung
     # (blättert nur eine Grid-Seite weiter, kein Dialog/Close).
     driver = None
