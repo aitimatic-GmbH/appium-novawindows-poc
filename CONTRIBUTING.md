@@ -40,26 +40,10 @@ Sicherheitsprobleme gehören nicht in ein Issue, sondern in den in
 
 ## Für den eigenen Fork
 
-Die Einrichtung steht in der [README](README.md). Zusätzlich zu den dort
-genannten Schritten werden für die Weiterentwicklung die Prüfwerkzeuge
-gebraucht:
-
-```powershell
-pip install -r requirements-dev.txt
-pre-commit install
-```
-
-Danach laufen Linter, Formatierer und die Hygieneprüfungen bei jedem Commit über
-die vorgemerkten Dateien. Über den gesamten Stand laufen dieselben Prüfungen
-mit:
-
-```powershell
-pre-commit run --all-files
-```
-
-Genau dieser Befehl läuft auch im Prüflauf auf GitHub, mit derselben
-Konfiguration und denselben Werkzeugständen. Was lokal sauber ist, ist dort
-ebenfalls sauber.
+Die Einrichtung steht in der [README](README.md), einmal für den Betrieb des
+POC und einmal für die Prüfungen vor dem Commit. Für die Weiterentwicklung
+werden beide Schritte gebraucht; ohne die Prüfwerkzeuge greifen die Hooks
+nicht.
 
 Für Commits gilt die im Repository durchgehend verwendete Form: eine
 Betreffzeile nach dem Muster `typ(bereich): kurzbeschreibung`, klein
