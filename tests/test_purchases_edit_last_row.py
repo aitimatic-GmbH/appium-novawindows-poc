@@ -1,6 +1,9 @@
-"""Haupttest für das Purchases-Szenario: ändert Order Date, Ship Date, Vendor
-und Order Status der letzten Zeile der letzten Seite (Row_19 auf Seite 50) mit
-echtem OK-Speichern und stellt die alten Werte nachweisbar wieder her."""
+"""Haupttest für das Purchases-Szenario.
+
+Ändert Order Date, Ship Date, Vendor und Order Status der letzten Zeile der
+letzten Seite (Row_19 auf Seite 50) mit echtem OK-Speichern und stellt die
+alten Werte nachweisbar wieder her.
+"""
 
 import contextlib
 import xml.etree.ElementTree as ElementTree

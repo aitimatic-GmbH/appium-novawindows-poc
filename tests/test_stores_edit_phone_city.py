@@ -1,6 +1,9 @@
-"""Haupttest für das Stores-Szenario: ändert Phone und City des freigegebenen
-Datensatzes AW00000254 mit echtem OK-Speichern und stellt die alten Werte
-anschließend nachweisbar wieder her (drittes Öffnen als Verifikation)."""
+"""Haupttest für das Stores-Szenario.
+
+Ändert Phone und City des freigegebenen Datensatzes AW00000254 mit echtem
+OK-Speichern und stellt die alten Werte anschließend nachweisbar wieder her
+(drittes Öffnen als Verifikation).
+"""
 
 import contextlib
 

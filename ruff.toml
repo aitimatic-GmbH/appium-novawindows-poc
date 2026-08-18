@@ -18,8 +18,6 @@ line-length = 100
 src = ["src", "."]
 
 [lint]
-# Die Regelgruppe D (Docstrings) läuft weiterhin nur informativ über die
-# Befehlszeile und ist bewusst noch nicht scharf geschaltet.
 select = [
     "E",   # pycodestyle, Fehler
     "W",   # pycodestyle, Warnungen
@@ -29,6 +27,7 @@ select = [
     "B",   # häufige Fehlermuster
     "SIM", # Vereinfachungen
     "S",   # Sicherheit
+    "D2",  # Docstrings, Form
 ]
 
 # Berechtigte Einzelfälle der Sicherheitsgruppe stehen als noqa an der
@@ -46,3 +45,12 @@ select = [
 
 [lint.isort]
 known-first-party = ["appium_novawindows_poc"]
+
+# Von der Docstring-Gruppe ist nur die Form scharf geschaltet. Ob überhaupt ein
+# Docstring vorhanden ist, bleibt ungeprüft: erzwungene Docstrings wiederholen
+# meist nur den Namen. Die Regeln zur englischen Formulierung bleiben ebenfalls
+# aus, weil hier auf Deutsch dokumentiert wird. Die Konvention löst zwei sich
+# widersprechende Regelpaare explizit auf, statt das dem Werkzeug samt Warnung
+# bei jedem Lauf zu überlassen.
+[lint.pydocstyle]
+convention = "pep257"
