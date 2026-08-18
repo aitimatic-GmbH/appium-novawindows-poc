@@ -25,7 +25,7 @@ def _find_strong_dialog_indicators(page_source: str, baseline_window_count: int)
     # Starke Indikatoren laut Locator-Katalog/Plan: Cancel-Button, OK-Button,
     # neue Window-Struktur, oder OK/Cancel kombiniert mit Account Number.
     # "Account" allein zählt NICHT (kommt schon im Grid/Hauptfenster vor).
-    root = ElementTree.fromstring(page_source)
+    root = ElementTree.fromstring(page_source)  # noqa: S314
 
     cancel_buttons = [element for element in root.iter("Button") if element.get("Name") == "Cancel"]
     ok_buttons = [element for element in root.iter("Button") if element.get("Name") == "OK"]
@@ -75,7 +75,8 @@ def test_dump_edit_dialog_tree_for_locator_discovery():
 
         ready_page_source = wait_until_app_ready(driver, settings)
         baseline_window_count = sum(
-            1 for _ in ElementTree.fromstring(ready_page_source).iter("Window")
+            1
+            for _ in ElementTree.fromstring(ready_page_source).iter("Window")  # noqa: S314
         )
 
         main_window = MainWindow(driver)

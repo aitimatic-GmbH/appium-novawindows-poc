@@ -74,7 +74,7 @@ def has_active_busy_indicator(page_source: str) -> bool:
     ist nur der IsBusy-Zustand in den ItemStatus-Properties.
     """
     try:
-        root = ElementTree.fromstring(page_source)
+        root = ElementTree.fromstring(page_source)  # noqa: S314
     except ElementTree.ParseError:
         return False
 

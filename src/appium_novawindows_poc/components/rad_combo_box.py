@@ -33,7 +33,7 @@ class RadComboBox:
             item_status = self._element().get_attribute("ItemStatus")
             if not item_status:
                 return None
-            status_root = ET.fromstring(item_status)
+            status_root = ET.fromstring(item_status)  # noqa: S314
             for prop in status_root.iter("Property"):
                 if prop.get("Name") == "SelectedItem":
                     return prop.get("Value")

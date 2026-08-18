@@ -75,7 +75,7 @@ def _get_window_candidates(process_name: str) -> list[dict[str, str]]:
         ),
     ]
 
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603
         command,
         check=False,
         capture_output=True,
