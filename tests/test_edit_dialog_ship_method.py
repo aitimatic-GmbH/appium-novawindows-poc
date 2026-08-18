@@ -37,20 +37,16 @@ TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
 def _read_field_value_best_effort(element) -> str | None:
     # Nur Diagnose, nie testentscheidend. Muster aus
     # tests/test_smoke_click.py::_read_pager_value_best_effort.
-    try:
+    with contextlib.suppress(Exception):
         value = element.text
         if value:
             return value
-    except Exception:
-        pass
 
     for attribute_name in ("Value.Value", "Value", "LegacyIAccessible.Value"):
-        try:
+        with contextlib.suppress(Exception):
             value = element.get_attribute(attribute_name)
             if value:
                 return value
-        except Exception:
-            pass
 
     return None
 

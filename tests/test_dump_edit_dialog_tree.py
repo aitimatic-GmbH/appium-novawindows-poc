@@ -47,12 +47,10 @@ def _find_strong_dialog_indicators(page_source: str, baseline_window_count: int)
 
 def _close_dialog_best_effort(driver) -> None:
     # Ohne Datenänderung schließen: erst Cancel, sonst ESC. Kein OK-Klick.
-    try:
+    with contextlib.suppress(Exception):
         cancel_button = driver.find_element("xpath", "//Button[@Name='Cancel']")
         driver.execute_script("windows: invoke", cancel_button)
         return
-    except Exception:
-        pass
 
     with contextlib.suppress(Exception):
         ActionChains(driver).send_keys(Keys.ESCAPE).perform()

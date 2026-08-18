@@ -227,12 +227,10 @@ def _find_target_row(driver, main_window: MainWindow):
 
 
 def _read_text_best_effort(element) -> str | None:
-    try:
+    with contextlib.suppress(Exception):
         value = element.text
         if value:
             return value
-    except Exception:
-        pass
     try:
         return element.get_attribute("Name")
     except Exception:
@@ -324,7 +322,7 @@ def _open_edit_dialog_for_target_row(
 def _read_combo_selected_item(combo_element) -> str | None:
     # Auswahl-Nachweis über die echte WPF-Selektion im ItemStatus
     # (etabliertes Muster aus dem Ship-Method-Test).
-    try:
+    with contextlib.suppress(Exception):
         item_status = combo_element.get_attribute("ItemStatus")
         if not item_status:
             return None
@@ -332,8 +330,6 @@ def _read_combo_selected_item(combo_element) -> str | None:
         for prop in status_root.iter("Property"):
             if prop.get("Name") == "SelectedItem":
                 return prop.get("Value")
-    except Exception:
-        pass
     return None
 
 

@@ -1,3 +1,5 @@
+import contextlib
+
 from appium_novawindows_poc.polling import wait_until_true
 
 
@@ -39,20 +41,16 @@ class MainWindow:
         except Exception:
             return None
 
-        try:
+        with contextlib.suppress(Exception):
             value = pager_textbox.text
             if value:
                 return value
-        except Exception:
-            pass
 
         for attribute_name in ("Value.Value", "Value", "LegacyIAccessible.Value"):
-            try:
+            with contextlib.suppress(Exception):
                 value = pager_textbox.get_attribute(attribute_name)
                 if value:
                     return value
-            except Exception:
-                pass
 
         return None
 
