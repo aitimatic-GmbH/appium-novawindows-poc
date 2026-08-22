@@ -72,8 +72,6 @@ pytest
 
 Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontrolliert wieder her; sie brechen vor jeder Änderung hart ab, wenn der Datensatz bereits Testwerte trägt.
 
-Für `test_edit_dialog_ship_method.py` liegt zusätzlich eine schnellere, nicht versionierte Vergleichsvariante vor, die die Zielzeile über einen einzelnen Text-Anker statt eines Batch-Reads aller Zeilen findet. Die damit erzielte Laufzeit ist in `docs/poc_result.md` dokumentiert, die Optimierung selbst ist im versionierten Test noch nicht übernommen.
-
 ### Discovery-/Diagnosetests
 
 - `test_dump_ui_tree.py`: UI-Tree-Dump des Hauptfensters zur Locator-Analyse

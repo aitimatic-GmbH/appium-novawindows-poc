@@ -30,25 +30,16 @@ INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrde
 TARGET_ORDER_NUMBER = "SO43774"
 TARGET_ACCOUNT_NUMBER_ANCHOR = "10-4030-016348"
 
+TARGET_ROW_XPATH = (
+    f".//Text[@Name='{TARGET_ORDER_NUMBER}']/ancestor::DataItem[@ClassName='GridViewRow']"
+)
+ACCOUNT_ANCHOR_IN_ROW_XPATH = (
+    ".//Custom[contains(@Name, 'Column Display Index: 4')]"
+    f"/Text[@Name='{TARGET_ACCOUNT_NUMBER_ANCHOR}']"
+)
+
 # Editiertes Feld: Ship-Method-ComboBox im Dialog.
 TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
-
-
-def _read_field_value_best_effort(element) -> str | None:
-    # Nur Diagnose, nie testentscheidend. Muster aus
-    # tests/test_smoke_click.py::_read_pager_value_best_effort.
-    with contextlib.suppress(Exception):
-        value = element.text
-        if value:
-            return value
-
-    for attribute_name in ("Value.Value", "Value", "LegacyIAccessible.Value"):
-        with contextlib.suppress(Exception):
-            value = element.get_attribute(attribute_name)
-            if value:
-                return value
-
-    return None
 
 
 def _write_diagnostic_artifact(driver, prefix: str) -> Path:
@@ -64,53 +55,17 @@ def _write_diagnostic_artifact(driver, prefix: str) -> Path:
     return output_file
 
 
-def _read_grid_cell_text(row_element, column_display_index: int) -> str | None:
-    # Zellen über das Label ihres Custom-Containers identifizieren:
-    # robuster als die Row-relativen Cell_N_x-AutomationIds, die pro Seite
-    # neu vergeben werden (Row_0..Row_19 auf jeder Seite).
-    text_elements = row_element.find_elements(
-        "xpath",
-        f".//Custom[contains(@Name, 'Column Display Index: {column_display_index}')]/Text",
-    )
-    if not text_elements:
-        return None
-    return _read_field_value_best_effort(text_elements[0])
-
-
-def _find_row_by_order_number(main_window, order_number: str):
+def _find_target_row(main_window):
+    # Ein Query statt eines Batch-Reads aller Spalte-0-Zellen: Text-Anker auf
+    # der Order Number, dann Aufstieg über ancestor auf die Grid-Zeile.
     grid = main_window.grid()
-    rows = grid.find_elements("xpath", ".//DataItem[@ClassName='GridViewRow']")
-    print(f"    Rows auf dieser Seite: {len(rows)}")
+    target_rows = grid.find_elements("xpath", TARGET_ROW_XPATH)
 
-    # Batch-Read: alle Spalte-0-Zellen der Seite in EINEM Live-Call statt
-    # einem Call pro Zeile (bis zu 20x weniger Roundtrips gegen den
-    # langsamen novawindows-Driver).
-    cell_texts = grid.find_elements(
-        "xpath",
-        ".//DataItem[@ClassName='GridViewRow']"
-        "//Custom[contains(@Name, 'Column Display Index: 0')]/Text",
+    assert len(target_rows) == 1, (
+        f"Erwartet genau eine Grid-Zeile zur Order Number "
+        f"{TARGET_ORDER_NUMBER!r}, gefunden: {len(target_rows)}."
     )
-
-    if len(cell_texts) != len(rows):
-        print(
-            "    Batch-Read Länge stimmt nicht mit Rows überein "
-            f"({len(cell_texts)} vs. {len(rows)}), falle auf Einzel-Read "
-            "zurück."
-        )
-        for row_position, row in enumerate(rows):
-            cell_text = _read_grid_cell_text(row, 0)
-            if cell_text == order_number:
-                print(f"    Treffer auf Row-Position {row_position}.")
-                return row
-        return None
-
-    for row_position, cell_element in enumerate(cell_texts):
-        cell_text = _read_field_value_best_effort(cell_element)
-        if cell_text == order_number:
-            print(f"    Treffer auf Row-Position {row_position}.")
-            return rows[row_position]
-
-    return None
+    return target_rows[0]
 
 
 def test_edit_dialog_ship_method_enables_ok_and_cancels():
@@ -163,18 +118,16 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
 
         assert previous_page_button.is_enabled()
 
-        target_row = _find_row_by_order_number(main_window, TARGET_ORDER_NUMBER)
+        target_row = _find_target_row(main_window)
 
-        assert target_row is not None, (
-            f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} wurde auf Seite 2 nicht gefunden."
-        )
-
-        account_number_on_row = _read_grid_cell_text(target_row, 4)
-        assert account_number_on_row == TARGET_ACCOUNT_NUMBER_ANCHOR, (
-            f"Zeile mit Order Number {TARGET_ORDER_NUMBER!r} hat Account "
-            f"Number {account_number_on_row!r}, erwartet "
-            f"{TARGET_ACCOUNT_NUMBER_ANCHOR!r}: Doppel-Anker nicht "
-            "eindeutig oder falsche Zeile getroffen."
+        # Zweiter Anker zeilengescoped statt über einen Zellwert-Read: eine
+        # Suche innerhalb der Zeile ersetzt Finden plus Auslesen der Zelle.
+        account_anchor_hits = target_row.find_elements("xpath", ACCOUNT_ANCHOR_IN_ROW_XPATH)
+        assert len(account_anchor_hits) == 1, (
+            f"Account Number {TARGET_ACCOUNT_NUMBER_ANCHOR!r} wurde in der "
+            f"Zeile zur Order Number {TARGET_ORDER_NUMBER!r} nicht genau "
+            f"einmal gefunden ({len(account_anchor_hits)}): Doppel-Anker "
+            "nicht eindeutig oder falsche Zeile getroffen."
         )
 
         # Selektion über das SelectionItemPattern des inneren Data-Items statt
@@ -243,8 +196,9 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
 
         assert driver.session_id is not None
 
-        page_source = driver.page_source
-        assert page_source.strip()
+        # Direkter Zustandstest statt eines vollständigen page_source, der den
+        # gesamten UI-Baum serialisiert.
+        assert not edit_dialog.is_present()
 
     finally:
         if driver is not None:

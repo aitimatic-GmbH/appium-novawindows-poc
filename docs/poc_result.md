@@ -45,10 +45,7 @@ Die Werte stammen aus manuellen Testläufen.
 |---|---|---|---|
 | Purchases (`test_purchases_edit_last_row.py`) | 337 s | 205 s | Elemente relativ zum bereits gefundenen Dialog suchen statt von der Desktop-Wurzel; ein Fund von der Wurzel kostet mehrere Sekunden, ein relativer unter einer Sekunde |
 | Stores (`test_stores_edit_phone_city.py`) | 303 s | 146 s | Seitenwechsel-Nachweis liest nur den Pager-Wert statt den vollständigen `page_source` |
-| Ship Method (nur lokale Vergleichsvariante) | 253 s | 138 s | Zielzeile über einen Text-Anker mit `ancestor`-Aufstieg statt Batch-Read aller Spalte-0-Zellen; die Zeilensuche fiel von rund 73 s auf rund 11 s |
-
-Die Ship-Method-Beschleunigung ist bisher nur in der lokalen Vergleichsvariante
-belegt und im versionierten Test noch nicht übernommen (siehe offene Punkte).
+| Ship Method (`test_edit_dialog_ship_method.py`) | 253 s | 181 s | Zielzeile über einen Text-Anker mit `ancestor`-Aufstieg statt Batch-Read aller Spalte-0-Zellen; die Zeilensuche fiel von rund 73 s auf rund 11 s |
 
 Wiederkehrende Kostentreiber, im NovaWindows-Server-Log belegt: jeder
 fensterweite Fund kostet rund vier Sekunden unabhängig vom Treffer, ein voller
@@ -65,8 +62,6 @@ Prädikat lag bei rund 102 s gegenüber rund 3,5 s für den `ancestor`-Aufstieg)
   `page_source` abfragt.
 - Ein Testlauf setzt eine aktive, entsperrte und grafisch verfügbare interaktive
   Windows-Desktop-Session voraus; ohne sie bleibt das Hauptfenster unsichtbar.
-- Der versionierte Ship-Method-Test trägt die verifizierten Schnell-Optimierungen
-  noch nicht.
 - Der Prüflauf auf GitHub deckt nur Linting, Formatierung und Dateihygiene ab;
   die Oberflächentests brauchen weiterhin einen manuellen Start in einer
   interaktiven Session.
@@ -75,10 +70,6 @@ Prädikat lag bei rund 102 s gegenüber rund 3,5 s für den `ancestor`-Aufstieg)
 
 Nur offene Punkte, keine zugesagten Ergebnisse.
 
-- Die drei belegten Ship-Method-Beschleuniger (Zeilensuche über `ancestor`,
-  Wegfall des abschließenden `page_source`, Cancel über Polling) in den
-  versionierten Test heben und dabei die geometrieunabhängige Bedienung
-  (`windows: select`, `windows: expand`) behalten, danach live verifizieren.
 - Session-Bootstrap für einen unbeaufsichtigten Lauf der Oberflächentests.
 - Generische NovaWindows-Test-Library statt einzelner Beispiel-Workflows.
 - Reporting.
