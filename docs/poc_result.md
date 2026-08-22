@@ -1,11 +1,11 @@
 # POC-Ergebnis
 
 Technischer Nachweis, dass Appium mit dem NovaWindows-Treiber die Zielanwendung
-(Windows, WPF, Telerik) automatisieren kann. Diese Datei fasst die belegten
+(Windows, WPF) automatisieren kann. Diese Datei fasst die belegten
 Ergebnisse des POC zusammen. Die Fähigkeiten sind im versionierten Testcode
 umgesetzt; die Laufzeiten stammen aus manuellen Testläufen in einer aktiven,
-entsperrten Windows-Desktop-Session. Eine CI- oder automatisierte Messumgebung
-gibt es nicht.
+entsperrten Windows-Desktop-Session. Die Oberflächentests sind nicht Teil des
+Prüflaufs auf GitHub, eine automatisierte Messumgebung gibt es nicht.
 
 ## Nachgewiesen
 
@@ -24,7 +24,7 @@ Testläufen grün.
 | Edit-Dialog öffnen | `test_edit_dialog_ship_method.py`, `test_stores_edit_phone_city.py`, `test_purchases_edit_last_row.py` |
 | Buttons über `windows: invoke` bedienen | Pager, Edit, OK, Cancel |
 | Textfelder über das UIA ValuePattern lesen und setzen | Phone und City in `test_stores_edit_phone_city.py` |
-| Telerik-ComboBox über einen exakten `RadComboBoxItem`-Locator und `windows: select` bedienen | Ship Method, Ship-Method- und Status-Felder in Purchases |
+| ComboBox über einen exakten `RadComboBoxItem`-Locator und `windows: select` bedienen | Ship Method, Ship-Method- und Status-Felder in Purchases |
 | Zustandsänderungen verifizieren (`SelectedItem` über `ItemStatus`, Feldwerte, Enabled-Zustand) | Wirkungs-Asserts in allen fachlichen Tests |
 | Geometrieunabhängig bedienen (`windows: select` und `windows: expand` statt Koordinaten) | `test_edit_dialog_ship_method.py`, Zeilenauswahl über das innere Data-Item |
 | Fehlerfälle mit gezielten Diagnoseartefakten stützen (Dump nur beim endgültigen Fehler) | `_write_diagnostic_artifact` |
@@ -67,7 +67,9 @@ Prädikat lag bei rund 102 s gegenüber rund 3,5 s für den `ancestor`-Aufstieg)
   Windows-Desktop-Session voraus; ohne sie bleibt das Hauptfenster unsichtbar.
 - Der versionierte Ship-Method-Test trägt die verifizierten Schnell-Optimierungen
   noch nicht.
-- Es gibt keine CI-Pipeline und keinen automatischen Session-Bootstrap.
+- Der Prüflauf auf GitHub deckt nur Linting, Formatierung und Dateihygiene ab;
+  die Oberflächentests brauchen weiterhin einen manuellen Start in einer
+  interaktiven Session.
 
 ## Nächste Phase
 
@@ -77,7 +79,7 @@ Nur offene Punkte, keine zugesagten Ergebnisse.
   Wegfall des abschließenden `page_source`, Cancel über Polling) in den
   versionierten Test heben und dabei die geometrieunabhängige Bedienung
   (`windows: select`, `windows: expand`) behalten, danach live verifizieren.
-- CI und Session-Bootstrap für einen unbeaufsichtigten Lauf.
+- Session-Bootstrap für einen unbeaufsichtigten Lauf der Oberflächentests.
 - Generische NovaWindows-Test-Library statt einzelner Beispiel-Workflows.
 - Reporting.
 - Weitere Performance-Optimierung, insbesondere Reduktion der

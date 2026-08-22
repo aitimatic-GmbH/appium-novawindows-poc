@@ -9,7 +9,7 @@ Diese Anleitung beschreibt, wie Appium Inspector mit einem laufenden Appium-Serv
 - Aktionen über den Appium Inspector auszuführen,
 - Testschritte mit dem Recorder als Python-Code aufzuzeichnen.
 
-Die Anleitung verwendet als Beispiel die Anwendung `ERP.Client.exe`.
+Die Anleitung verwendet als Beispiel eine WPF-Desktopanwendung mit Splash-Screen, im Text `TestApp.exe` mit dem Fenstertitel `Test Application`.
 
 ---
 
@@ -65,8 +65,8 @@ Für Anwendungen mit Splash-Screen oder besonderem Working Directory ist es zuve
 Beispiel:
 
 ```powershell
-Set-Location "C:\Users\locad\Anwendungen\ERP.Client_Q26"
-Start-Process ".\ERP.Client.exe"
+Set-Location "C:\Users\<Benutzer>\Anwendungen\TestApp"
+Start-Process ".\TestApp.exe"
 ```
 
 Warten, bis das echte Hauptfenster sichtbar ist.
@@ -84,10 +84,10 @@ Ein Fensterhandle kann sich auch während eines Testfalls ändern, wenn das Fens
 ### Handle über Prozess und Fenstertitel ermitteln
 
 ```powershell
-$process = Get-Process -Name "ERP.Client" |
+$process = Get-Process -Name "TestApp" |
     Where-Object {
         $_.MainWindowHandle -ne 0 -and
-        $_.MainWindowTitle -eq "Telerik ERP"
+        $_.MainWindowTitle -eq "Test Application"
     } |
     Select-Object -First 1
 
@@ -104,7 +104,7 @@ Beispielausgabe:
 
 ```text
 ProcessId     : 1234
-WindowTitle   : Telerik ERP
+WindowTitle   : Test Application
 HandleDecimal : 197744
 ```
 
@@ -116,10 +116,10 @@ Der Wert unter `HandleDecimal` wird für `appium:appTopLevelWindow` verwendet.
 $process = $null
 
 while ($null -eq $process) {
-    $process = Get-Process -Name "ERP.Client" -ErrorAction SilentlyContinue |
+    $process = Get-Process -Name "TestApp" -ErrorAction SilentlyContinue |
         Where-Object {
             $_.MainWindowHandle -ne 0 -and
-            $_.MainWindowTitle -eq "Telerik ERP"
+            $_.MainWindowTitle -eq "Test Application"
         } |
         Select-Object -First 1
 
@@ -144,7 +144,7 @@ Beispiel für einen Remote-Appium-Server:
 
 | Einstellung | Wert |
 |---|---|
-| Remote Host | `192.168.178.68` |
+| Remote Host | `192.168.0.10` |
 | Remote Port | `4723` |
 | Remote Path | `/` |
 | SSL | deaktiviert |
@@ -187,8 +187,8 @@ Dieser Weg ist nur sinnvoll, wenn NovaWindows das richtige Hauptfenster zuverlä
 {
   "platformName": "Windows",
   "appium:automationName": "NovaWindows",
-  "appium:app": "C:\\Users\\locad\\Anwendungen\\ERP.Client_Q26\\ERP.Client.exe",
-  "appium:appWorkingDir": "C:\\Users\\locad\\Anwendungen\\ERP.Client_Q26",
+  "appium:app": "C:\\Users\\<Benutzer>\\Anwendungen\\TestApp\\TestApp.exe",
+  "appium:appWorkingDir": "C:\\Users\\<Benutzer>\\Anwendungen\\TestApp",
   "appium:shouldCloseApp": false
 }
 ```
@@ -301,7 +301,7 @@ quser
 Appium und Zielanwendung sollten in derselben Session laufen:
 
 ```powershell
-Get-Process node, ERP.Client -IncludeUserName |
+Get-Process node, TestApp -IncludeUserName |
     Select-Object ProcessName, Id, SessionId, UserName
 ```
 
@@ -383,7 +383,7 @@ Erst danach ausgeführte Aktionen werden als Code angezeigt.
 ## 12. Empfohlener Arbeitsablauf
 
 ```text
-ERP.Client starten
+TestApp starten
 → echtes Hauptfenster abwarten
 → dezimalen Window Handle ermitteln
 → Appium Server starten

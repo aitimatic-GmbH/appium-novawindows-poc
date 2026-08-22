@@ -50,7 +50,7 @@ def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
         time.sleep(1)
 
     raise TimeoutError(
-        "Kein gültiges ERP.Client-Hauptfenster gefunden. "
+        "Kein gültiges Hauptfenster der Zielanwendung gefunden. "
         f"ProcessName: {settings.windows_app_process_name!r}. "
         f"Erwartete Prozess-ID: {process_id}. "
         f"Erwarteter Fenstertitel: {settings.windows_app_title!r}. "

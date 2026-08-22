@@ -1,12 +1,12 @@
-# ERP.Client Locator Candidates
+# Locator-Kandidaten Hauptfenster
 
 Manuell nutzbarer Locator-Katalog für den Appium/NovaWindows-POC.
-Quelle: vollständiger UIA-Dump des Hauptfensters von `Telerik ERP` (ERP.Client.exe).
-Es wurden nur kuratierte Kandidaten übernommen — kein Roh-XML.
+Quelle: vollständiger UIA-Dump des Hauptfensters der Zielanwendung.
+Es wurden nur kuratierte Kandidaten übernommen, kein Roh-XML.
 
 > **Wichtig für XPath:** Im NovaWindows-Dump ist der ControlType der **XML-Tag-Name**
 > (z. B. `<Button ...>`, `<TreeItem ...>`), **kein** Attribut. XPath-Ausdrücke müssen daher
-> `//Button[@Name='Print']` lauten — **nicht** `//*[@ControlType='Button']`.
+> `//Button[@Name='Print']` lauten, **nicht** `//*[@ControlType='Button']`.
 > Nutzbare Attribute: `@AutomationId`, `@Name`, `@ClassName`, `@IsEnabled`, `@IsOffscreen`.
 
 ## 1. Dump-Metadaten
@@ -31,15 +31,15 @@ je 1 Window / Tree / DataGrid / Edit / ProgressBar / Header / Pane.
 
 | Indikator | Befund im Dump | Bedeutung |
 |---|---|---|
-| `RadSplashScreen` | **0 Vorkommen** | Splash-Screen ist beim Dump bereits geschlossen — Dump zeigt das echte Hauptfenster |
+| `RadSplashScreen` | **0 Vorkommen** | Splash-Screen ist beim Dump bereits geschlossen, der Dump zeigt das echte Hauptfenster |
 | `MainViewModel` | **13 Vorkommen** (u. a. DataContext des Root-Fensters) | Hauptfenster ist vollständig initialisiert |
-| `RadBusyIndicator` | **2 Vorkommen** — ein `ProgressBar`-Element mit ClassName=`RadBusyIndicator`, Name=`Loading...` | Vorhanden, aber **nicht aktiv** — siehe unten |
+| `RadBusyIndicator` | **2 Vorkommen**: ein `ProgressBar`-Element mit ClassName=`RadBusyIndicator`, Name=`Loading...` | Vorhanden, aber **nicht aktiv**, siehe unten |
 | `IsBusy="True"` | **nicht vorhanden** | Kein aktiver Busy-Zustand |
 | `IsBusyIndicationVisible` | einziges busy-nahes Property: `IsBusyIndicationVisible="False"` | Busy-Overlay ist ausgeblendet |
 
 **Strukturelle Besonderheit:** Der `RadBusyIndicator` ist der **Container des gesamten
 Content-Bereichs** (Hierarchie: `Window` → `ProgressBar[RadBusyIndicator]` → `Custom[TableView]`
-→ Toolbar/Grid). Er ist also immer im Baum vorhanden — seine bloße Existenz ist **kein**
+→ Toolbar/Grid). Er ist also immer im Baum vorhanden, seine bloße Existenz ist **kein**
 Busy-Signal. Entscheidend ist `IsBusyIndicationVisible` bzw. ob das „Loading…“-Overlay
 sichtbar/aktiv ist.
 
@@ -61,7 +61,7 @@ sichtbar/aktiv ist.
 
 ## 4. Empfohlene Locators
 
-Die besten Kandidaten dieses Dumps — alle AutomationIds hier sind **exakt 1×** im Dump
+Die besten Kandidaten dieses Dumps: alle AutomationIds hier sind **exakt 1×** im Dump
 vorhanden (per Attribut-Suche `AutomationId="..."` verifiziert):
 
 | Zweck / Vermutung | Name | AutomationId | ControlType | ClassName | IsEnabled | IsOffscreen | Empfohlener Locator | Bewertung |
@@ -77,7 +77,7 @@ vorhanden (per Attribut-Suche `AutomationId="..."` verifiziert):
 | Pager-Seitenfeld | DataPagerTextBox | DataPagerTextBox | Edit | TextBox | True | False | `accessibility id` = `DataPagerTextBox` | stabil |
 | Nav-Knoten „Orders“ | Orders | (leer) | TreeItem | RadTreeViewItem | True | False | XPath: `//TreeItem[@Name='Orders']` | brauchbar |
 
-\* Das Breadcrumb-Element trägt im Dump keinen eigenen aussagekräftigen ControlType-Tag —
+\* Das Breadcrumb-Element trägt im Dump keinen eigenen aussagekräftigen ControlType-Tag;
 über die AutomationId ist es dennoch eindeutig auffindbar.
 
 **Konkrete Appium/NovaWindows-Beispiele:**
@@ -113,14 +113,14 @@ Alle 41 Button-Elemente wurden gesichtet; hier die verwertbaren (Rest: Template-
 | Pager: vorige Seite (auf Seite 1 deaktiviert) | Move to previous page | MoveToPreviousPageButton | Button | RadButton | **False** | False | `accessibility id` = `MoveToPreviousPageButton` | stabil |
 | Pager: nächste Seite | Move to next page | MoveToNextPageButton | Button | RadButton | True | False | `accessibility id` = `MoveToNextPageButton` | stabil |
 | Pager: letzte Seite | Move to last page | MoveToLastPageButton | Button | RadButton | True | False | `accessibility id` = `MoveToLastPageButton` | stabil |
-| Fenster minimieren (Chrome — nicht für Smoke-Tests) | Minimize | PART_MinimizeButton | Button | RadButton | True | False | `accessibility id` = `PART_MinimizeButton` | stabil |
-| Fenster wiederherstellen (Chrome — nicht für Smoke-Tests) | Restore | PART_RestoreButton | Button | RadButton | True | False | `accessibility id` = `PART_RestoreButton` | stabil |
-| Fenster schließen (Chrome — **beendet die App!**) | Close | PART_CloseButton | Button | RadButton | True | False | `accessibility id` = `PART_CloseButton` | stabil |
+| Fenster minimieren (Chrome, nicht für Smoke-Tests) | Minimize | PART_MinimizeButton | Button | RadButton | True | False | `accessibility id` = `PART_MinimizeButton` | stabil |
+| Fenster wiederherstellen (Chrome, nicht für Smoke-Tests) | Restore | PART_RestoreButton | Button | RadButton | True | False | `accessibility id` = `PART_RestoreButton` | stabil |
+| Fenster schließen (Chrome, **beendet die App!**) | Close | PART_CloseButton | Button | RadButton | True | False | `accessibility id` = `PART_CloseButton` | stabil |
 | Expander-Kopf (2× vorhanden!) | HeaderButton | HeaderButton | Button | RadToggleButton | True | False | nur mit Container-Kontext, s. Abschnitt 11 | riskant |
 | Breadcrumb-Split-Button (3× vorhanden) | ERP.Client.NavigationNode | SplitButton / ButtonPart | Button | RadSplitButton / RadButton | True | False | s. Abschnitt 11 | riskant |
 
 Hinweis: Die Namen `Print`, `Export`, `Edit`, `Delete` existieren **zusätzlich** je 1× als
-`Text`-Label (Beschriftung im Button). Ein reiner Name-Locator träfe 2 Elemente —
+`Text`-Label (Beschriftung im Button). Ein reiner Name-Locator träfe 2 Elemente,
 daher immer die AutomationId verwenden.
 
 ## 6. Eingabefelder
@@ -138,12 +138,12 @@ Navigation/Interaktion sichtbar → Abschnitt 13.
 
 Im Dump ist **kein** ComboBox-ControlType vorhanden.
 
-Dropdown-ähnliche Elemente sind ausschließlich Telerik-Template-Parts der Grid-Filter
-und der Breadcrumb-Navigation — **kein Ersatz** für fachliche ComboBoxen:
+Dropdown-ähnliche Elemente sind ausschließlich Template-Parts der Grid-Filter
+und der Breadcrumb-Navigation, **kein Ersatz** für fachliche ComboBoxen:
 
 | Zweck / Vermutung | Name | AutomationId | ControlType | ClassName | IsEnabled | IsOffscreen | Empfohlener Locator | Bewertung |
 |---|---|---|---|---|---|---|---|---|
-| Grid-Spaltenfilter-Dropdown (8× — pro Spalte) | FilterDropDownButton | PART_DropDownButton | Button | Button | True | False | nur relativ zum Spaltenkopf | riskant |
+| Grid-Spaltenfilter-Dropdown (8×, pro Spalte) | FilterDropDownButton | PART_DropDownButton | Button | Button | True | False | nur relativ zum Spaltenkopf | riskant |
 | Filter-Inhaltscontainer (8×) | FilteringDropDown | PART_DistinctFilterControl | Custom | FilteringDropDown | True | False | nicht direkt ansprechen | nicht empfohlen |
 | Breadcrumb-Dropdown-Part (2×) | DropDownPart | DropDownPart | Button | RadToggleButton | True | False | nur mit Kontext, s. Abschnitt 11 | riskant |
 
@@ -177,7 +177,7 @@ IsOffscreen=False, **ohne AutomationId**):
 
 **Achtung:** Jeder Knoten-Name existiert im Dump mindestens 2× (TreeItem + inneres
 Text-Label; `Sales` und `Orders` sogar 3×, zusätzlich in der Breadcrumb). Ein **reiner
-Name-Locator ist riskant** — immer mit ControlType `TreeItem` kombinieren; dann sind alle
+Name-Locator ist riskant**, immer mit ControlType `TreeItem` kombinieren; dann sind alle
 15 Knoten eindeutig. Noch robuster: relativ zum Baum suchen:
 
 ```python
@@ -200,7 +200,7 @@ Zentrale Struktur der aktuellen Ansicht: das Sales-Orders-Grid.
 | Zelle (Zeile r, Spalte c) | Zellwert bzw. „Item: …, Column Display Index: c“ | Cell_r_c / CellElement_r_c | Custom | GridViewCell | True | False | nicht direkt (indexbasiert) | nicht empfohlen |
 | Pager-Container | (leer) | (leer) | Group | RadDataPager | True | False | über die Pager-Buttons ansprechen | riskant |
 
-**Spaltenköpfe** — alle 10 sind `HeaderItem`/`GridViewHeaderCell` mit AutomationId = Name,
+**Spaltenköpfe**: alle 10 sind `HeaderItem`/`GridViewHeaderCell` mit AutomationId = Name,
 jeweils exakt 1× (gut für Sortier-Klicks und Struktur-Asserts):
 
 `Order Number`, `Customer`, `Account Number`, `Due Date`, `Ship Method`,
@@ -220,10 +220,11 @@ grid = driver.find_element("accessibility id", "gridView")
 row = grid.find_element("xpath", ".//DataItem[.//*[@Name='SO43744']]")
 ```
 
-## 10. Kritische Telerik-/WPF-Template-Elemente
+## 10. Kritische WPF-Template-Elemente
 
-Diese Elemente stammen aus Telerik-Control-Templates. Sie sind technisch vorhanden,
-aber **keine fachlichen Zielobjekte** — nur mit Kontext oder gar nicht ansprechen:
+Diese Elemente stammen aus den Control-Templates der Steuerelementbibliothek.
+Sie sind technisch vorhanden, aber **keine fachlichen Zielobjekte**; nur mit
+Kontext oder gar nicht ansprechen:
 
 | Zweck / Vermutung | Name | AutomationId | ControlType | ClassName | IsEnabled | IsOffscreen | Empfohlener Locator | Bewertung |
 |---|---|---|---|---|---|---|---|---|
@@ -239,7 +240,7 @@ aber **keine fachlichen Zielobjekte** — nur mit Kontext oder gar nicht ansprec
 
 ## 11. Mehrdeutige Locators
 
-Elemente, deren Name oder AutomationId **mehrfach** im Dump vorkommt — nur mit
+Elemente, deren Name oder AutomationId **mehrfach** im Dump vorkommt; nur mit
 zusätzlichem Kontext (Eltern-Element, weiteres Attribut) verwenden:
 
 | Locator-Wert | Vorkommen | Kontext | Risiko / Empfehlung |
@@ -256,23 +257,23 @@ zusätzlichem Kontext (Eltern-Element, weiteres Attribut) verwenden:
 
 ## 12. Nicht empfohlene Locators
 
-* **Koordinaten-Klicks** — Fenster ist maximiert auf 1366×820; jede Auflösungs-/Skalierungsänderung bricht den Test.
-* **Indexbasierte Grid-IDs** `Row_N`, `Cell_r_c`, `CellElement_r_c` — ändern sich bei Scrollen, Sortieren, Filtern, Paging.
-* **Zellen-Namen der Form** `Item: ERP.Repository.Service.SalesOrderHeader, Column Display Index: N` — generiert, format-/lokalisierungsabhängig.
-* **Datenwerte als alleiniger Locator** (z. B. `SO43761`, `286.2616`, `XRQ - TRUCK GROUND`, Datumswerte) — hängen vom Datenbestand ab; nur für gezielte Assertions einsetzbar.
-* **Elemente ohne Name und ohne AutomationId** — 32 Elemente im Dump haben einen leeren Namen, darunter die 2 `RadioButton` (ClassName `RadRadioButton`, in einem unbenannten `RadExpander`): aktuell nicht sicher adressierbar.
+* **Koordinaten-Klicks**: Fenster ist maximiert auf 1366×820; jede Auflösungs-/Skalierungsänderung bricht den Test.
+* **Indexbasierte Grid-IDs** `Row_N`, `Cell_r_c`, `CellElement_r_c`: ändern sich bei Scrollen, Sortieren, Filtern, Paging.
+* **Zellen-Namen der Form** `Item: ERP.Repository.Service.SalesOrderHeader, Column Display Index: N`, generiert, format-/lokalisierungsabhängig.
+* **Datenwerte als alleiniger Locator** (z. B. `SO43761`, `286.2616`, `XRQ - TRUCK GROUND`, Datumswerte): hängen vom Datenbestand ab; nur für gezielte Assertions einsetzbar.
+* **Elemente ohne Name und ohne AutomationId**: 32 Elemente im Dump haben einen leeren Namen, darunter die 2 `RadioButton` (ClassName `RadRadioButton`, in einem unbenannten `RadExpander`): aktuell nicht sicher adressierbar.
 * **Template-Parts** aus Abschnitt 10 (`PART_FrozenColumnsSplitter`, Gripper, Virtualisierungs-Panel).
-* **`PART_CloseButton`** als Testziel — beendet die Anwendung.
+* **`PART_CloseButton`** als Testziel, beendet die Anwendung.
 
 ## 13. Offene Punkte / Nächste Dumps
 
-1. **Weitere Module dumpen:** Customers, Individuals, Stores, Production-, Purchases-Unterseiten — vermutlich eigene Grids/Formulare mit neuen Locators.
-2. **Edit-Dialog:** Nach Zeilenauswahl wird `Edit` enabled — Dump des Bearbeitungsformulars nötig (dort werden Eingabefelder und echte ComboBoxen erwartet).
+1. **Weitere Module dumpen:** Customers, Individuals, Stores, Production-, Purchases-Unterseiten, vermutlich eigene Grids/Formulare mit neuen Locators.
+2. **Edit-Dialog:** Nach Zeilenauswahl wird `Edit` enabled; Dump des Bearbeitungsformulars nötig (dort werden Eingabefelder und echte ComboBoxen erwartet).
 3. **Print-/Export-Dialoge:** Vor Nutzung im Test klären, welche Dialoge sich öffnen und wie sie geschlossen werden (Cleanup-Strategie).
 4. **Filter-Dropdown geöffnet dumpen:** Inhalt von `PART_DistinctFilterControl` ist erst im geöffneten Zustand sichtbar.
 5. **Busy-Zustand verifizieren:** Dump während eines Ladevorgangs, um zu prüfen, wie sich `IsBusyIndicationVisible="True"` bzw. das „Loading…“-Overlay im Baum äußert (für robuste Wait-Strategien).
-6. **Unbenannte RadioButtons klären:** 2 `RadRadioButton` ohne Name/AutomationId in einem RadExpander — Zweck im UI identifizieren, ggf. AutomationIds im Client nachrüsten lassen.
-7. **Zeilenauswahl-Strategie festlegen:** Klick auf Zelle vs. `DataItem`-Selection-Pattern — per Probe-Test validieren.
+6. **Unbenannte RadioButtons klären:** 2 `RadRadioButton` ohne Name/AutomationId in einem RadExpander: Zweck im UI identifizieren, ggf. AutomationIds im Client nachrüsten lassen.
+7. **Zeilenauswahl-Strategie festlegen:** Klick auf Zelle vs. `DataItem`-Selection-Pattern, per Probe-Test validieren.
 
 ## Smoke-Test Empfehlung
 
@@ -284,8 +285,8 @@ kein SplashScreen, kein aktiver BusyIndicator, kein reines Template-Element):
 | 1 | Pager „nächste Seite“ | `accessibility id` = `MoveToNextPageButton` | **Bevorzugt:** AutomationId, enabled, nebenwirkungsarm; Erfolg verifizierbar (Pager-Textbox ändert sich, `MoveToPreviousPageButton` wird enabled) |
 | 2 | Pager „letzte Seite“ | `accessibility id` = `MoveToLastPageButton` | Wie Prio 1; danach wird `MoveToNextPageButton` disabled → klares Assert |
 | 3 | Nav-Knoten „Stores“ oder „Orders“ | `//TreeItem[@Name='Stores' and @ClassName='RadTreeViewItem']` | Navigations-Klick, Erfolg über Breadcrumb/Grid-Wechsel prüfbar; keine AutomationId, aber Name+ControlType eindeutig |
-| 4 | Toolbar „Export“ | `accessibility id` = `Export` | ⚠️ **Nur mit Warnhinweis:** kann einen Datei-Dialog öffnen — erst nach Klärung der Cleanup-Strategie verwenden |
-| 5 | Toolbar „Print“ | `accessibility id` = `Print` | ⚠️ **Nur mit Warnhinweis:** kann einen Print-Dialog öffnen — nur mit Dialog-Handling/Cleanup |
+| 4 | Toolbar „Export“ | `accessibility id` = `Export` | ⚠️ **Nur mit Warnhinweis:** kann einen Datei-Dialog öffnen, erst nach Klärung der Cleanup-Strategie verwenden |
+| 5 | Toolbar „Print“ | `accessibility id` = `Print` | ⚠️ **Nur mit Warnhinweis:** kann einen Print-Dialog öffnen, nur mit Dialog-Handling/Cleanup |
 
 **Nicht** als Smoke-Test-Kandidaten: `PART_MinimizeButton`, `PART_RestoreButton`,
 `PART_CloseButton` (Fenster-Chrome; Close beendet die App) sowie `Edit`/`Delete`
