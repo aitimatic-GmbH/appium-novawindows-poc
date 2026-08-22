@@ -1,6 +1,6 @@
 import time
 import xml.etree.ElementTree as ET
-from typing import Callable
+from collections.abc import Callable
 
 POLL_INTERVAL_SECONDS = 1
 
@@ -45,10 +45,7 @@ class RadComboBox:
         self, option_name: str, timeout_seconds: int, max_attempts: int
     ) -> None:
         def option_present() -> bool:
-            return (
-                len(self._element().find_elements("xpath", f".//*[@Name='{option_name}']"))
-                >= 1
-            )
+            return len(self._element().find_elements("xpath", f".//*[@Name='{option_name}']")) >= 1
 
         def option_selected() -> bool:
             return self.read_selected_item() == option_name
@@ -56,28 +53,26 @@ class RadComboBox:
         last_error: Exception | None = None
         for attempt in range(1, max_attempts + 1):
             try:
-                # Oeffnen per windows: expand (geometrieunabhaengig), Mausklick
+                # Öffnen per windows: expand (geometrieunabhängig), Mausklick
                 # nur als letzter Retry-Fallback.
                 if attempt < max_attempts:
                     self._driver.execute_script("windows: expand", self._element())
                 else:
-                    print("RadComboBox: letzter Versuch oeffnet per Mausklick.")
+                    print("RadComboBox: letzter Versuch öffnet per Mausklick.")
                     self._element().click()
 
                 _wait_until_true(
                     option_present,
                     timeout_seconds,
-                    f"Dropdown-Eintrag {option_name!r} ist nach dem Oeffnen "
+                    f"Dropdown-Eintrag {option_name!r} ist nach dem Öffnen "
                     "der ComboBox nicht im UIA-Tree erschienen.",
                 )
 
-                option_locator = (
-                    ".//ListItem[@ClassName='RadComboBoxItem']" f"[@Name='{option_name}']"
-                )
+                option_locator = f".//ListItem[@ClassName='RadComboBoxItem'][@Name='{option_name}']"
                 option_items = self._element().find_elements("xpath", option_locator)
                 if len(option_items) != 1:
                     raise AssertionError(
-                        f"Erwartet genau ein RadComboBoxItem fuer {option_name!r} "
+                        f"Erwartet genau ein RadComboBoxItem für {option_name!r} "
                         f"innerhalb der ComboBox, gefunden: {len(option_items)}."
                     )
 
@@ -86,8 +81,7 @@ class RadComboBox:
                 _wait_until_true(
                     option_selected,
                     timeout_seconds,
-                    f"Option wurde ueber windows: select nicht auf "
-                    f"{option_name!r} gesetzt.",
+                    f"Option wurde über windows: select nicht auf {option_name!r} gesetzt.",
                 )
                 return
             except Exception as error:
@@ -95,5 +89,5 @@ class RadComboBox:
 
         raise AssertionError(
             f"Option {option_name!r} wurde nach {max_attempts} Versuchen nicht "
-            f"uebernommen. Letzter Fehler: {last_error}"
+            f"übernommen. Letzter Fehler: {last_error}"
         )

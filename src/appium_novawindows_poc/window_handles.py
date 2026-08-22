@@ -7,10 +7,7 @@ from appium_novawindows_poc.settings import Settings
 
 def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
     if not settings.windows_app_process_name:
-        raise RuntimeError(
-            "WINDOWS_APP_PROCESS_NAME ist nicht gesetzt. "
-            "Bitte .env prüfen."
-        )
+        raise RuntimeError("WINDOWS_APP_PROCESS_NAME ist nicht gesetzt. Bitte .env prüfen.")
 
     if not settings.windows_app_title:
         raise RuntimeError(
@@ -27,7 +24,7 @@ def wait_for_main_window_handle(settings: Settings, process_id: int) -> int:
         last_seen = "\n".join(str(candidate) for candidate in candidates)
 
         for candidate in candidates:
-            # Nur die selbst gestartete Prozess-Instanz akzeptieren - sonst
+            # Nur die selbst gestartete Prozess-Instanz akzeptieren, sonst
             # kann bei einer verwaisten Altinstanz mit passendem Fenstertitel
             # das falsche (nicht sichtbare) Fenster attached werden.
             if int(candidate.get("Id", "0")) != process_id:

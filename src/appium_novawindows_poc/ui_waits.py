@@ -67,10 +67,10 @@ def wait_until_app_ready(driver: WebDriver, settings: Settings) -> str:
 
 
 def has_active_busy_indicator(page_source: str) -> bool:
-    """True, wenn ein Busy-Indicator im UI-Tree tatsaechlich aktiv ist.
+    """True, wenn ein Busy-Indicator im UI-Tree tatsächlich aktiv ist.
 
     Telerik-RadBusyIndicator-Elemente tragen ihren konfigurierten BusyContent
-    (z. B. "Loading...") dauerhaft als Name — auch im Leerlauf. Aussagekraeftig
+    (z. B. "Loading...") dauerhaft als Name, auch im Leerlauf. Aussagekräftig
     ist nur der IsBusy-Zustand in den ItemStatus-Properties.
     """
     try:

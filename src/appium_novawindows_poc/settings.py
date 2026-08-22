@@ -64,9 +64,7 @@ def _load_positive_int(env_name: str, default: int) -> int:
         ) from exc
 
     if value <= 0:
-        raise RuntimeError(
-            f"{env_name} muss größer als 0 sein. Aktueller Wert: {raw_value!r}"
-        )
+        raise RuntimeError(f"{env_name} muss größer als 0 sein. Aktueller Wert: {raw_value!r}")
 
     return value
 

@@ -32,7 +32,7 @@ class MainWindow:
         return self._driver.find_element("accessibility id", self.LEFT_NAV_TREE_ID)
 
     def pager_value_best_effort(self) -> str | None:
-        # DataPagerTextBox nur als Zusatzdiagnose lesen - nie testentscheidend,
+        # DataPagerTextBox nur als Zusatzdiagnose lesen: nie testentscheidend,
         # da unklar ist, ob NovaWindows den Wert stabil exponiert.
         try:
             pager_textbox = self._driver.find_element("accessibility id", self.PAGER_TEXTBOX_ID)
