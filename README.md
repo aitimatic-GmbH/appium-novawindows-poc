@@ -1,5 +1,6 @@
 # appium-novawindows-poc
 
+[![Quality Gate](https://github.com/aitimatic-GmbH/appium-novawindows-poc/actions/workflows/ci.yml/badge.svg)](https://github.com/aitimatic-GmbH/appium-novawindows-poc/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status: Proof of Concept](https://img.shields.io/badge/status-proof--of--concept-orange)
 ![Platform: Windows](https://img.shields.io/badge/platform-windows-lightgrey)
@@ -71,12 +72,27 @@ pytest
 
 Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontrolliert wieder her; sie brechen vor jeder Änderung hart ab, wenn der Datensatz bereits Testwerte trägt.
 
-Für `test_edit_dialog_ship_method.py` liegt zusätzlich eine schnellere, nicht versionierte Vergleichsvariante vor, die die Zielzeile über einen einzelnen Text-Anker statt eines Batch-Reads aller Zeilen findet. Die damit erzielte Laufzeit ist in `docs/poc_result.md` dokumentiert, die Optimierung selbst ist im versionierten Test noch nicht übernommen.
-
 ### Discovery-/Diagnosetests
 
 - `test_dump_ui_tree.py`: UI-Tree-Dump des Hauptfensters zur Locator-Analyse
 - `test_dump_edit_dialog_tree.py`: UI-Tree-Dump des Edit-Dialogs zur Locator-Analyse
+
+## Prüfungen
+
+Linting, Formatierung und Dateihygiene laufen bei jedem Commit über die vorgemerkten Dateien. Die einmalige Einrichtung in derselben virtuellen Umgebung:
+
+```powershell
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+Über den gesamten Stand laufen dieselben Prüfungen mit:
+
+```powershell
+pre-commit run --all-files
+```
+
+Genau dieser Befehl läuft bei jedem Push auch als Prüflauf auf GitHub, mit derselben Konfiguration und denselben Werkzeugständen. Was lokal sauber ist, ist dort ebenfalls sauber.
 
 ## Locator- und Performance-Strategie
 
@@ -117,7 +133,8 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
 ## Hinweise
 
 - Tests benötigen eine aktive, entsperrte interaktive Windows-Desktop-Session; ohne sie bleibt das Hauptfenster der Anwendung unsichtbar
-- Der POC enthält aktuell keine CI-Pipeline; die Testausführung wird manuell gegen einen Windows-Host mit aktiver Desktop-Session gestartet. Appium-Client und Appium-Server auf unterschiedlichen Hosts laufen zu lassen ist als nächster Schritt geplant, aber noch nicht technisch verifiziert
+- Der Prüflauf auf GitHub deckt ausschließlich Linting, Formatierung und Dateihygiene ab. Die Testausführung ist bewusst nicht Teil davon, weil jeder Testfall die laufende Zielanwendung und eine interaktive Desktop-Session braucht; sie wird manuell gegen einen Windows-Host mit aktiver Desktop-Session gestartet
+- Appium-Client und Appium-Server auf unterschiedlichen Hosts laufen zu lassen ist als nächster Schritt geplant, aber noch nicht technisch verifiziert
 - Nach jedem Testfall wird die Zielanwendung im `finally`-Block des jeweiligen Tests über `process_cleanup.py` beendet
 
 ## Einschränkungen

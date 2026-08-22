@@ -1,3 +1,4 @@
+import contextlib
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -28,16 +29,14 @@ class RadComboBox:
         return self._root_getter().find_element("xpath", self._combo_xpath)
 
     def read_selected_item(self) -> str | None:
-        try:
+        with contextlib.suppress(Exception):
             item_status = self._element().get_attribute("ItemStatus")
             if not item_status:
                 return None
-            status_root = ET.fromstring(item_status)
+            status_root = ET.fromstring(item_status)  # noqa: S314
             for prop in status_root.iter("Property"):
                 if prop.get("Name") == "SelectedItem":
                     return prop.get("Value")
-        except Exception:
-            pass
 
         return None
 

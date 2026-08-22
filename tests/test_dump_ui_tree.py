@@ -42,7 +42,7 @@ def test_dump_ui_tree_for_locator_discovery():
         assert "RadSplashScreen" not in page_source
         assert not has_active_busy_indicator(page_source)
 
-        root = ElementTree.fromstring(page_source)
+        root = ElementTree.fromstring(page_source)  # noqa: S314
         element_count = sum(1 for _ in root.iter())
         assert element_count > 10
 

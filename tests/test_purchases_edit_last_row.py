@@ -1,6 +1,9 @@
-"""Haupttest für das Purchases-Szenario: ändert Order Date, Ship Date, Vendor
-und Order Status der letzten Zeile der letzten Seite (Row_19 auf Seite 50) mit
-echtem OK-Speichern und stellt die alten Werte nachweisbar wieder her."""
+"""Haupttest für das Purchases-Szenario.
+
+Ändert Order Date, Ship Date, Vendor und Order Status der letzten Zeile der
+letzten Seite (Row_19 auf Seite 50) mit echtem OK-Speichern und stellt die
+alten Werte nachweisbar wieder her.
+"""
 
 import contextlib
 import xml.etree.ElementTree as ElementTree
@@ -227,12 +230,10 @@ def _find_target_row(driver, main_window: MainWindow):
 
 
 def _read_text_best_effort(element) -> str | None:
-    try:
+    with contextlib.suppress(Exception):
         value = element.text
         if value:
             return value
-    except Exception:
-        pass
     try:
         return element.get_attribute("Name")
     except Exception:
@@ -324,16 +325,14 @@ def _open_edit_dialog_for_target_row(
 def _read_combo_selected_item(combo_element) -> str | None:
     # Auswahl-Nachweis über die echte WPF-Selektion im ItemStatus
     # (etabliertes Muster aus dem Ship-Method-Test).
-    try:
+    with contextlib.suppress(Exception):
         item_status = combo_element.get_attribute("ItemStatus")
         if not item_status:
             return None
-        status_root = ElementTree.fromstring(item_status)
+        status_root = ElementTree.fromstring(item_status)  # noqa: S314
         for prop in status_root.iter("Property"):
             if prop.get("Name") == "SelectedItem":
                 return prop.get("Value")
-    except Exception:
-        pass
     return None
 
 

@@ -33,3 +33,11 @@ repos:
       # Dateien deshalb praktisch leer. Er bleibt drin, weil er lokal genau dann
       # greift, wenn er gebraucht wird.
       - id: check-added-large-files
+
+  # Die YAML-Prüfung oben belegt nur, dass die Datei syntaktisch gültig ist.
+  # Ob der Ablauf selbst stimmt, prüft erst dieser Hook: unbekannte Schlüssel,
+  # falsche Ereignisnamen, ungültige Ausdrücke und veraltete Läufer-Abbilder.
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint

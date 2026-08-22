@@ -18,9 +18,6 @@ line-length = 100
 src = ["src", "."]
 
 [lint]
-# Die Regelgruppen S (Sicherheit) und D (Docstrings) laufen in dieser Runde nur
-# informativ über die Befehlszeile und sind bewusst noch nicht scharf
-# geschaltet.
 select = [
     "E",   # pycodestyle, Fehler
     "W",   # pycodestyle, Warnungen
@@ -29,7 +26,31 @@ select = [
     "UP",  # Sprachmodernisierung
     "B",   # häufige Fehlermuster
     "SIM", # Vereinfachungen
+    "S",   # Sicherheit
+    "D2",  # Docstrings, Form
 ]
+
+# Berechtigte Einzelfälle der Sicherheitsgruppe stehen als noqa an der
+# Fundstelle. Es sind genau zwei Muster:
+#
+#   S603/S607  Prozessstart mit Argumenten aus der lokalen Konfiguration,
+#              ohne Shell; taskkill und powershell sind Windows-Bordmittel.
+#   S314       XML-Quelle ist der UI-Baum der lokal gestarteten Zielanwendung,
+#              keine Fremddaten; defusedxml brächte keinen Schutzgewinn.
+#
+# Pauschal ausgenommen ist nur assert in Tests: dort ist es das
+# Zusicherungsmittel von pytest und kein vergessener Debug-Rest.
+[lint.per-file-ignores]
+"tests/**" = ["S101"]
 
 [lint.isort]
 known-first-party = ["appium_novawindows_poc"]
+
+# Von der Docstring-Gruppe ist nur die Form scharf geschaltet. Ob überhaupt ein
+# Docstring vorhanden ist, bleibt ungeprüft: erzwungene Docstrings wiederholen
+# meist nur den Namen. Die Regeln zur englischen Formulierung bleiben ebenfalls
+# aus, weil hier auf Deutsch dokumentiert wird. Die Konvention löst zwei sich
+# widersprechende Regelpaare explizit auf, statt das dem Werkzeug samt Warnung
+# bei jedem Lauf zu überlassen.
+[lint.pydocstyle]
+convention = "pep257"
