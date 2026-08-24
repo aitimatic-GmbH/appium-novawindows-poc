@@ -1,18 +1,19 @@
 import contextlib
-from datetime import datetime
-from pathlib import Path
 
+import pytest
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
 from appium_novawindows_poc.app_launcher import start_windows_app
 from appium_novawindows_poc.components.rad_combo_box import RadComboBox
+from appium_novawindows_poc.diagnostics import write_diagnostic_artifact
 from appium_novawindows_poc.driver_factory import attach_to_window_driver
 from appium_novawindows_poc.pages import EditRecordDialog, MainWindow
 from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
+from tests._diagnostics import ensure_failure_artifact_captured
 
 # Obergrenze für den Fehlerfall (wait_until_true pollt, kein Fixdelay).
 EDIT_DIALOG_OPEN_TIMEOUT_SECONDS = 5
@@ -40,19 +41,6 @@ ACCOUNT_ANCHOR_IN_ROW_XPATH = (
 
 # Editiertes Feld: Ship-Method-ComboBox im Dialog.
 TARGET_SHIP_METHOD_OPTION = "OVERSEAS - DELUXE"
-
-
-def _write_diagnostic_artifact(driver, prefix: str) -> Path:
-    artifacts_dir = Path("artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = artifacts_dir / f"{prefix}_{timestamp}.xml"
-
-    with contextlib.suppress(Exception):
-        output_file.write_text(driver.page_source, encoding="utf-8")
-
-    return output_file
 
 
 def _find_target_row(main_window):
@@ -142,7 +130,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
                 main_window, CLICK_RETRY_ATTEMPTS, EDIT_DIALOG_OPEN_TIMEOUT_SECONDS
             )
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_open_failure")
+            artifact_path = write_diagnostic_artifact(driver, "erp_edit_dialog_open_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         ship_method_combo = RadComboBox(
@@ -161,7 +149,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         except AssertionError as error:
             with contextlib.suppress(Exception):
                 ActionChains(driver).send_keys(Keys.ESCAPE).perform()
-            artifact_path = _write_diagnostic_artifact(driver, "erp_ship_method_dropdown_failure")
+            artifact_path = write_diagnostic_artifact(driver, "erp_ship_method_dropdown_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         ActionChains(driver).send_keys(Keys.TAB).perform()
@@ -169,7 +157,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         try:
             ok_button = edit_dialog.wait_ok_enabled(OK_ENABLED_TIMEOUT_SECONDS)
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_okwait_failure")
+            artifact_path = write_diagnostic_artifact(driver, "erp_edit_dialog_okwait_failure")
             raise AssertionError(f"{error} Diagnose-Dump: {artifact_path}") from error
 
         assert ok_button.is_enabled(), (
@@ -187,7 +175,7 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         try:
             edit_dialog.close_via_cancel(CLICK_RETRY_ATTEMPTS, EDIT_DIALOG_OPEN_TIMEOUT_SECONDS)
         except AssertionError as error:
-            artifact_path = _write_diagnostic_artifact(driver, "erp_edit_dialog_cancel_failure")
+            artifact_path = write_diagnostic_artifact(driver, "erp_edit_dialog_cancel_failure")
             raise AssertionError(
                 f"{error} Möglicherweise erscheint ein Bestätigungsdialog. "
                 "Kein automatischer OK/Yes-Klick, um keine Datenänderung zu "
@@ -200,6 +188,11 @@ def test_edit_dialog_ship_method_enables_ok_and_cancels():
         # gesamten UI-Baum serialisiert.
         assert not edit_dialog.is_present()
 
+    except pytest.xfail.Exception:
+        raise
+    except (Exception, pytest.fail.Exception):
+        ensure_failure_artifact_captured(driver, "erp_edit_dialog_ship_method_unhandled")
+        raise
     finally:
         if driver is not None:
             if edit_dialog is not None:
