@@ -54,9 +54,15 @@ class RadComboBox:
             return self.read_selected_item() == option_name
 
         last_error: Exception | None = None
-        for _attempt in range(1, max_attempts + 1):
+        for attempt in range(1, max_attempts + 1):
             try:
-                self._element().click()
+                # Oeffnen per windows: expand (geometrieunabhaengig), Mausklick
+                # nur als letzter Retry-Fallback.
+                if attempt < max_attempts:
+                    self._driver.execute_script("windows: expand", self._element())
+                else:
+                    print("RadComboBox: letzter Versuch oeffnet per Mausklick.")
+                    self._element().click()
 
                 _wait_until_true(
                     option_present,
