@@ -1,0 +1,187 @@
+name: Live Tests
+
+# Führt die Testsuite auf dem self-hosted Windows-Runner gegen die laufende
+# Zielanwendung aus. Die Tests brauchen einen angemeldeten Desktop, deshalb
+# gibt es bewusst nur den manuellen Auslöser: der Tester startet die VM und
+# meldet sich an, erst danach ist ein Lauf sinnvoll.
+on:
+  workflow_dispatch:
+    inputs:
+      pytest_filter:
+        description: "Ausdruck für die Testauswahl, leer bedeutet vollständige Suite"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Zwei gleichzeitige Läufe würden sich auf demselben Desktop die Fenster
+# gegenseitig wegnehmen. Ein laufender Job wird deshalb nicht abgebrochen,
+# der zweite wartet.
+concurrency:
+  group: live-tests
+  cancel-in-progress: false
+
+jobs:
+  live-tests:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 60
+    env:
+      # Die Angaben zur Zielanwendung kommen aus den Secrets des Repositories.
+      # python-dotenv überschreibt vorhandene Umgebungsvariablen nicht, die
+      # Werte gelten also unverändert und es braucht weder eine Datei im
+      # Workspace noch eine Ablage auf dem Runner.
+      WINDOWS_APP_PATH: ${{ secrets.WINDOWS_APP_PATH }}
+      WINDOWS_APP_WORKING_DIR: ${{ secrets.WINDOWS_APP_WORKING_DIR }}
+      WINDOWS_APP_TITLE: ${{ secrets.WINDOWS_APP_TITLE }}
+      WINDOWS_APP_PROCESS_NAME: ${{ secrets.WINDOWS_APP_PROCESS_NAME }}
+      WINDOWS_APP_SPLASH_MARKER: ${{ vars.WINDOWS_APP_SPLASH_MARKER }}
+      WINDOWS_APP_READY_TIMEOUT_SECONDS: ${{ vars.WINDOWS_APP_READY_TIMEOUT_SECONDS || '60' }}
+      # Weitere Begriffe für die Anonymisierung, mit Semikolon getrennt. Deckt
+      # ab, was in keinem der Werte oben vorkommt, etwa einzelne Namensräume.
+      ANONYMIZE_EXTRA_TERMS: ${{ secrets.ANONYMIZE_EXTRA_TERMS }}
+      # Bilder und Video lassen sich nachträglich nicht anonymisieren. Sie
+      # dürfen deshalb nicht entstehen, denn das Artefakt eines öffentlichen
+      # Repositories ist für jeden abrufbar.
+      WINDOWS_CAPTURE_SCREENSHOT_ON_FAILURE: "false"
+      WINDOWS_RECORD_VIDEO_ON_FAILURE: "false"
+      WINDOWS_REPORTING_DEMO_FAILURE: "false"
+      APPIUM_SERVER_URL: http://127.0.0.1:4723
+      APPIUM_LOG_FILE: artifacts\appium-server.log
+      # Die Ausgaben der Tests enthalten Umlaute, die Windows-Konsole arbeitet
+      # sonst mit einer Codepage, die daran scheitert.
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Quellstand auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Der Schritt räumt den Workspace sonst vollständig aus und löscht
+          # damit vor jedem Lauf die installierten Abhängigkeiten.
+          clean: false
+
+      - name: Konfiguration prüfen
+        shell: powershell
+        run: |
+          $pflicht = @(
+            'WINDOWS_APP_PATH'
+            'WINDOWS_APP_WORKING_DIR'
+            'WINDOWS_APP_TITLE'
+            'WINDOWS_APP_PROCESS_NAME'
+            'WINDOWS_APP_SPLASH_MARKER'
+          )
+          $fehlend = $pflicht | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+          if ($fehlend) {
+            throw "Fehlende Konfiguration: $($fehlend -join ', '). Siehe Anleitung zur Runner-Vorbereitung."
+          }
+          # Secrets werden im Log automatisch ersetzt, die einzelnen Begriffe
+          # aus der Liste dagegen nicht. Sie werden hier nachgemeldet.
+          if ($env:ANONYMIZE_EXTRA_TERMS) {
+            foreach ($begriff in ($env:ANONYMIZE_EXTRA_TERMS -split ';')) {
+              $begriff = $begriff.Trim()
+              if ($begriff.Length -ge 3) {
+                Write-Host "::add-mask::$begriff"
+              }
+            }
+          }
+
+      - name: Ergebnisse des letzten Laufs entfernen
+        shell: powershell
+        run: |
+          if (Test-Path artifacts) {
+            Get-ChildItem artifacts -Force |
+              Where-Object { $_.Name -ne '.gitkeep' } |
+              Remove-Item -Recurse -Force
+          } else {
+            New-Item -ItemType Directory -Path artifacts | Out-Null
+          }
+
+      - name: Node-Abhängigkeiten installieren
+        shell: powershell
+        run: npm install --no-audit --no-fund
+
+      - name: Treiber sicherstellen
+        shell: powershell
+        run: |
+          $installiert = & npx appium driver list --installed --json | Out-String
+          if ($installiert -notmatch '"novawindows"') {
+            & npx appium driver install --source=npm appium-novawindows-driver
+          }
+
+      - name: Python-Umgebung bereitstellen
+        shell: powershell
+        run: |
+          if (-not (Test-Path .venv\Scripts\python.exe)) {
+            & py -3.10 -m venv .venv
+          }
+          & .venv\Scripts\python.exe -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Appium-Server starten
+        shell: powershell
+        run: |
+          $logdatei = Join-Path (Get-Location) $env:APPIUM_LOG_FILE
+          $server = Start-Process -FilePath npx.cmd -PassThru -WindowStyle Hidden `
+            -ArgumentList "appium --address 127.0.0.1 --port 4723 --log-level info --log ""$logdatei"""
+          "APPIUM_PID=$($server.Id)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $frist = (Get-Date).AddSeconds(60)
+          do {
+            Start-Sleep -Seconds 2
+            try {
+              $status = Invoke-RestMethod -Uri http://127.0.0.1:4723/status -TimeoutSec 5
+            } catch {
+              $status = $null
+            }
+          } until ($status -or (Get-Date) -gt $frist)
+          if (-not $status) {
+            throw "Appium-Server antwortet nicht auf Port 4723."
+          }
+
+      - name: Testsuite ausführen
+        shell: powershell
+        env:
+          PYTEST_FILTER: ${{ inputs.pytest_filter }}
+        run: |
+          if ($env:PYTEST_FILTER) {
+            & .venv\Scripts\python.exe -m pytest -k $env:PYTEST_FILTER
+          } else {
+            & .venv\Scripts\python.exe -m pytest
+          }
+
+      - name: Appium-Server beenden
+        if: always()
+        shell: powershell
+        run: |
+          if ($env:APPIUM_PID) {
+            & taskkill /PID $env:APPIUM_PID /T /F
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Appium-Server lief nicht mehr, kein Eingriff nötig."
+            }
+          }
+          exit 0
+
+      - name: Berichte anonymisieren
+        if: always()
+        shell: powershell
+        env:
+          # Analog zu pythonpath in pytest.ini: das Bibliothekspaket liegt unter
+          # src und steht sonst nicht im Suchpfad des Interpreters.
+          PYTHONPATH: src
+        run: |
+          if (-not (Test-Path .venv\Scripts\python.exe)) {
+            Write-Host "Ohne Python-Umgebung gab es auch keinen Testlauf."
+            exit 0
+          }
+          & .venv\Scripts\python.exe -m appium_novawindows_poc.artifact_anonymizer artifacts
+
+      - name: Berichte als Artefakt sichern
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-tests-reports
+          # Bewusst einzeln aufgezählt: Abzüge des Oberflächenbaums enthalten
+          # die vollständigen Typnamen der Anwendung und bleiben deshalb auf
+          # dem Runner.
+          path: |
+            artifacts/junit.xml
+            artifacts/report.html
+            artifacts/assets/
+            artifacts/appium-server.log
