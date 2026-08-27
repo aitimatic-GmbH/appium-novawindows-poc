@@ -1,0 +1,26 @@
+name: Live Tests
+
+# Platzhalter für den manuellen Auslöser. GitHub bietet ihn nur an, wenn die
+# Workflow-Datei im Standard-Branch liegt; erst dann lässt sich ein Lauf für
+# einen Feature-Branch von Hand starten. Der vollständige Ablauf kommt mit dem
+# Branch, der den Testlauf auf dem self-hosted Runner einführt, und ersetzt
+# diese Datei.
+on:
+  workflow_dispatch:
+    inputs:
+      pytest_filter:
+        description: "Ausdruck für die Testauswahl, leer bedeutet vollständige Suite"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  hinweis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hinweis ausgeben
+        run: |
+          echo "Dieser Lauf stammt aus dem Standard-Branch und führt keine Tests aus."
+          echo "Der Testlauf braucht den Arbeitsbranch, dort liegt der vollständige Ablauf."
