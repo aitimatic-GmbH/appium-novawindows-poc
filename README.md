@@ -103,6 +103,12 @@ Der HTML-Report referenziert Screenshots und XML-Dumps über relative Pfade, dah
 
 Eine dritte Umgebungsvariable, `WINDOWS_RECORD_VIDEO_ON_FAILURE`, zeichnet die UI-Interaktionsphase als Video auf, aktuell nur an `test_smoke_click.py` verifiziert. Die Datei bleibt nur bei einem fehlgeschlagenen Testlauf erhalten und wird bei Erfolg automatisch gelöscht; auf die übrige Testsuite ist die Aufzeichnung noch nicht ausgerollt.
 
+## Testlauf auf GitHub
+
+Die Testsuite läuft zusätzlich als eigener Workflow auf einem self-hosted Windows-Runner. Ausgelöst wird er ausschließlich von Hand, denn die Tests brauchen eine angemeldete Desktop-Session auf dem Runner. Ergebnis ist ein Artefakt mit den Testberichten und dem Protokoll des Appium-Servers.
+
+Einrichtung des Runners, die erwarteten Secrets und der Ablauf eines Laufs stehen in `docs/self_hosted_runner_anleitung.md`.
+
 ## Prüfungen
 
 Linting, Formatierung und Dateihygiene laufen bei jedem Commit über die vorgemerkten Dateien. Die einmalige Einrichtung in derselben virtuellen Umgebung:
@@ -152,6 +158,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump` und `ensure_failure_artifact_captured`
 - `docs/`: Projektdokumentation
   - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
+  - `self_hosted_runner_anleitung.md`: Einrichtung des self-hosted Runners und Ablauf des manuell gestarteten Testlaufs
   - `main_window_locator_candidates.md`, `edit_dialog_locator_candidates.md`: kuratierte Locator-Kandidaten für Hauptfenster und Edit-Dialog
   - `poc_result.md`: zusammengefasste POC-Ergebnisse und belegte Laufzeiten
 - `config/capabilities.example.json`: Beispiel für rohe Appium-Capabilities
@@ -160,7 +167,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
 ## Hinweise
 
 - Tests benötigen eine aktive, entsperrte interaktive Windows-Desktop-Session; ohne sie bleibt das Hauptfenster der Anwendung unsichtbar
-- Der Prüflauf auf GitHub deckt ausschließlich Linting, Formatierung und Dateihygiene ab. Die Testausführung ist bewusst nicht Teil davon, weil jeder Testfall die laufende Zielanwendung und eine interaktive Desktop-Session braucht; sie wird manuell gegen einen Windows-Host mit aktiver Desktop-Session gestartet
+- Der Prüflauf bei jedem Push deckt ausschließlich Linting, Formatierung und Dateihygiene ab; die Testausführung liegt im separaten, manuell ausgelösten Workflow (siehe Testlauf auf GitHub)
 - Appium-Client und Appium-Server auf unterschiedlichen Hosts laufen zu lassen ist als nächster Schritt geplant, aber noch nicht technisch verifiziert
 - Nach jedem Testfall wird die Zielanwendung im `finally`-Block des jeweiligen Tests über `process_cleanup.py` beendet
 
