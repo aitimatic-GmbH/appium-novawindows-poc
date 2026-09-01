@@ -126,7 +126,7 @@ Der HTML-Bericht besteht aus zwei Teilen, der Datei selbst und einem Unterverzei
 
 Vor dem Hochladen ersetzt der Workflow in allen Textdateien des Artefakts die Angaben zur Zielanwendung. Das ist keine Kür, sondern notwendig: Artefakte eines öffentlichen Repositories kann jeder herunterladen, und im Gegensatz zum Protokoll macht GitHub Secrets in Artefakten nicht unkenntlich.
 
-Aus demselben Grund entstehen im Lauf keine Screenshots und kein Video. Bilder lassen sich nachträglich nicht anonymisieren. Abzüge des Oberflächenbaums werden ebenfalls nicht hochgeladen, sie bleiben auf der Maschine und stehen dort zur Fehlersuche bereit.
+Aus demselben Grund entstehen im Lauf keine Screenshots und kein Video. Bilder lassen sich nachträglich nicht anonymisieren. Die XML-Abbilder der Oberfläche werden ebenfalls nicht hochgeladen, sie bleiben auf der Maschine und stehen dort zur Fehlersuche bereit.
 
 ---
 
