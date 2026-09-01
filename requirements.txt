@@ -1,3 +1,3 @@
-Appium-Python-Client
-pytest
-python-dotenv
+Appium-Python-Client==5.3.1
+pytest==9.1.1
+python-dotenv==1.2.2
