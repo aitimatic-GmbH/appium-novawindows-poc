@@ -126,6 +126,12 @@ pre-commit run --all-files
 
 Genau dieser Befehl läuft bei jedem Push auch als Prüflauf auf GitHub, mit derselben Konfiguration und denselben Werkzeugständen. Was lokal sauber ist, ist dort ebenfalls sauber.
 
+Zusätzlich führt der Prüflauf die anwendungsfreien Tests aus. Tests, die eine laufende Anwendung auf einem angemeldeten Desktop brauchen, tragen den Marker `app` und sind dort abgewählt. Dieselbe Auswahl lokal:
+
+```powershell
+pytest -m "not app"
+```
+
 ## Locator- und Performance-Strategie
 
 Für die POC-Testszenarien werden möglichst direkte und eindeutige Locatoren verwendet:
@@ -156,6 +162,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
   - `conftest.py`: Hooks für die Report-Anbindung, setzt die Artefakt-Registry vor jedem Test zurück und hängt Screenshot/XML-Dump bei unerwarteten Fehlern als Extras an den HTML-Report an
   - `_waits.py`: dünner Re-Export von `appium_novawindows_poc.polling.wait_until_true`
   - `_diagnostics.py`: pytest-gebundener Diagnose-Wrapper mit `fail_with_dump` und `ensure_failure_artifact_captured`
+  - `_fakes.py`: Attrappen für Bearbeitungsdialog, ComboBox und Treiber; ersetzen in den anwendungsfreien Tests die laufende Anwendung, der Treiber-Nachbau setzt `windows: select` tatsächlich um, sodass der Auswahlvorgang der ComboBox ohne Oberfläche vollständig durchläuft
 - `docs/`: Projektdokumentation
   - `appium_inspector_novawindows_anleitung.md`: Anleitung für den Appium Inspector mit dem NovaWindows-Treiber
   - `self_hosted_runner_anleitung.md`: Einrichtung des self-hosted Runners und Ablauf des manuell gestarteten Testlaufs
@@ -167,7 +174,7 @@ Nach einer UI-Aktualisierung werden Elemente erneut über ihren eindeutigen Loca
 ## Hinweise
 
 - Tests benötigen eine aktive, entsperrte interaktive Windows-Desktop-Session; ohne sie bleibt das Hauptfenster der Anwendung unsichtbar
-- Der Prüflauf bei jedem Push deckt ausschließlich Linting, Formatierung und Dateihygiene ab; die Testausführung liegt im separaten, manuell ausgelösten Workflow (siehe Testlauf auf GitHub)
+- Der Prüflauf bei jedem Push deckt Linting, Formatierung, Dateihygiene und die anwendungsfreien Tests ab; die Tests gegen die laufende Anwendung liegen im separaten, manuell ausgelösten Workflow (siehe Testlauf auf GitHub)
 - Appium-Client und Appium-Server auf unterschiedlichen Hosts laufen zu lassen ist als nächster Schritt geplant, aber noch nicht technisch verifiziert
 - Nach jedem Testfall wird die Zielanwendung im `finally`-Block des jeweiligen Tests über `process_cleanup.py` beendet
 
