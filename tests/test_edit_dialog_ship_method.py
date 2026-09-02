@@ -15,6 +15,8 @@ from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured
 
+pytestmark = pytest.mark.app
+
 # Obergrenze für den Fehlerfall (wait_until_true pollt, kein Fixdelay).
 EDIT_DIALOG_OPEN_TIMEOUT_SECONDS = 5
 SHIP_METHOD_OPTION_TIMEOUT_SECONDS = 5

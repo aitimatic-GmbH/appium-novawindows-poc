@@ -5,6 +5,8 @@ from appium_novawindows_poc.process_cleanup import terminate_windows_app
 from appium_novawindows_poc.settings import load_settings
 from tests._diagnostics import ensure_failure_artifact_captured
 
+pytestmark = pytest.mark.app
+
 
 def test_novawindows_session_can_start_test_application():
     driver = None
