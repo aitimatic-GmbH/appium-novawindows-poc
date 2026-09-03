@@ -27,20 +27,31 @@ def attach_to_window_driver(
     settings: Settings,
     top_level_window_handle: int | str,
 ) -> webdriver.Remote:
+    """Bindet eine Session über die Desktop-Wurzel an ein laufendes Fenster."""
+    window_handle = _to_novawindows_window_handle(top_level_window_handle)
+
     capabilities = {
         "platformName": "Windows",
         "appium:automationName": "NovaWindows",
-        "appium:appTopLevelWindow": _to_novawindows_window_handle(top_level_window_handle),
+        "appium:app": "root",
         "appium:shouldCloseApp": False,
     }
 
     options = AppiumOptions()
     options.load_capabilities(capabilities)
 
-    return webdriver.Remote(
+    driver = webdriver.Remote(
         command_executor=settings.appium_server_url,
         options=options,
     )
+
+    try:
+        driver.switch_to.window(window_handle)
+    except Exception:
+        driver.quit()
+        raise
+
+    return driver
 
 
 def _to_novawindows_window_handle(handle: int | str) -> str:

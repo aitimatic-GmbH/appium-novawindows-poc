@@ -86,6 +86,7 @@ Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontro
 Diese Tests brauchen weder einen Appium-Server noch die Zielanwendung und laufen deshalb im Prüflauf auf GitHub mit.
 
 - `test_settings.py`: Konfiguration aus den Umgebungsvariablen, inklusive Standardwerten und Fehlermeldungen
+- `test_driver_factory.py`: Capabilities der beiden Sitzungsarten und Umrechnung des Fensterzeigers
 - `test_polling.py`: die gemeinsame Warteschleife, Erfolgsfall und Zeitüberschreitung
 - `test_store_contact_details.py`: Fachdatenklasse für die Kontaktdaten eines Datensatzes
 - `test_purchase_order_edit_fields.py`: Fachdatenklasse für die Felder des Edit-Dialogs
