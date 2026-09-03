@@ -107,6 +107,16 @@ Eine dritte Umgebungsvariable, `WINDOWS_RECORD_VIDEO_ON_FAILURE`, zeichnet die U
 
 Die Testsuite läuft zusätzlich als eigener Workflow auf einem self-hosted Windows-Runner. Ausgelöst wird er ausschließlich von Hand, denn die Tests brauchen eine angemeldete Desktop-Session auf dem Runner. Ergebnis ist ein Artefakt mit den Testberichten und dem Protokoll des Appium-Servers.
 
+Das Eingabefeld für die Testauswahl filtert nach Testnamen und wird als `-k`-Ausdruck an pytest weitergereicht. Marker wie `app` wirken dort nicht. Bleibt das Feld leer, läuft die vollständige Suite.
+
+| Eingabe | Wirkung |
+|---|---|
+| leer | vollständige Suite |
+| `session_start` | nur der Sitzungsaufbau |
+| `smoke` | nur der Klick-Test |
+| `ship_method` | nur der Versandart-Test |
+| `stores or purchases` | die beiden Szenarien mit echtem Speichern |
+
 Einrichtung des Runners, die erwarteten Secrets und der Ablauf eines Laufs stehen in `docs/self_hosted_runner_anleitung.md`.
 
 ## Prüfungen
