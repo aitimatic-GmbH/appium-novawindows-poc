@@ -81,9 +81,17 @@ Die beiden letzten Szenarien ändern Daten und stellen sie im selben Test kontro
 - `test_dump_ui_tree.py`: UI-Tree-Dump des Hauptfensters zur Locator-Analyse
 - `test_dump_edit_dialog_tree.py`: UI-Tree-Dump des Edit-Dialogs zur Locator-Analyse
 
-### Unit-Tests
+### Anwendungsfreie Tests
 
-- `test_diagnostics_jpeg_quality.py`: prüft `get_screenshot_jpeg_quality()` isoliert über `monkeypatch`, ohne Appium-Server oder Zielanwendung
+Diese Tests brauchen weder einen Appium-Server noch die Zielanwendung und laufen deshalb im Prüflauf auf GitHub mit.
+
+- `test_settings.py`: Konfiguration aus den Umgebungsvariablen, inklusive Standardwerten und Fehlermeldungen
+- `test_polling.py`: die gemeinsame Warteschleife, Erfolgsfall und Zeitüberschreitung
+- `test_store_contact_details.py`: Fachdatenklasse für die Kontaktdaten eines Datensatzes
+- `test_purchase_order_edit_fields.py`: Fachdatenklasse für die Felder des Edit-Dialogs
+- `test_diagnostics_artifacts.py`: Ablage der Screenshots und XML-Dumps unter `artifacts/`
+- `test_diagnostics_jpeg_quality.py`: Qualitätswert der Screenshots, gültige und ungültige Eingaben
+- `test_artifact_anonymizer.py`: Anonymisierung der Berichte vor dem Hochladen
 
 ### Reporting-Verifikation
 
