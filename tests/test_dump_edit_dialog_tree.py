@@ -17,6 +17,8 @@ from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured
 from tests._waits import wait_until_true
 
+pytestmark = pytest.mark.app
+
 EDIT_ENABLED_TIMEOUT_SECONDS = 20
 DIALOG_INDICATOR_TIMEOUT_SECONDS = 20
 INNER_DATA_ITEM_XPATH = "./DataItem[@ClassName='ERP.Repository.Service.SalesOrderHeader data item']"

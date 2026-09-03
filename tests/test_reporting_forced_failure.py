@@ -11,6 +11,8 @@ from appium_novawindows_poc.ui_waits import wait_until_app_ready
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured
 
+pytestmark = pytest.mark.app
+
 
 def test_reporting_forced_failure_captures_screenshot_and_dump():
     # Nur zur gezielten Verifikation von Screenshot-/XML-Reporting: baut

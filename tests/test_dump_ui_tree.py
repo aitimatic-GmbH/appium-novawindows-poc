@@ -13,6 +13,8 @@ from appium_novawindows_poc.ui_waits import has_active_busy_indicator, wait_unti
 from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured
 
+pytestmark = pytest.mark.app
+
 
 def test_dump_ui_tree_for_locator_discovery():
     driver = None

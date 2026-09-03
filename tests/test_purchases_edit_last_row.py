@@ -28,6 +28,8 @@ from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured, fail_with_dump
 from tests._waits import wait_until_true
 
+pytestmark = pytest.mark.app
+
 PURCHASES_VIEW_TIMEOUT_SECONDS = 15
 PAGE_JUMP_TIMEOUT_SECONDS = 30
 TARGET_ROW_TIMEOUT_SECONDS = 15

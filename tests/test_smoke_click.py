@@ -19,6 +19,8 @@ from appium_novawindows_poc.window_handles import wait_for_main_window_handle
 from tests._diagnostics import ensure_failure_artifact_captured
 from tests._waits import wait_until_true
 
+pytestmark = pytest.mark.app
+
 PREVIOUS_ENABLED_TIMEOUT_SECONDS = 20
 
 
