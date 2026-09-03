@@ -89,6 +89,7 @@ Diese Tests brauchen weder einen Appium-Server noch die Zielanwendung und laufen
 - `test_polling.py`: die gemeinsame Warteschleife, Erfolgsfall und Zeitüberschreitung
 - `test_store_contact_details.py`: Fachdatenklasse für die Kontaktdaten eines Datensatzes
 - `test_purchase_order_edit_fields.py`: Fachdatenklasse für die Felder des Edit-Dialogs
+- `test_rad_combo_box.py`: Auswahl eines Eintrags im Dropdown, Zweitanlauf per Mausklick und Fehlerfälle
 - `test_diagnostics_artifacts.py`: Ablage der Screenshots und XML-Dumps unter `artifacts/`
 - `test_diagnostics_jpeg_quality.py`: Qualitätswert der Screenshots, gültige und ungültige Eingaben
 - `test_artifact_anonymizer.py`: Anonymisierung der Berichte vor dem Hochladen
