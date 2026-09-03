@@ -1,22 +1,8 @@
 import contextlib
-import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 
-POLL_INTERVAL_SECONDS = 1
-
-
-def _wait_until_true(check: Callable[[], bool], timeout_seconds: int, failure_message: str) -> None:
-    deadline = time.monotonic() + timeout_seconds
-
-    while True:
-        if check():
-            return
-
-        if time.monotonic() >= deadline:
-            raise AssertionError(failure_message)
-
-        time.sleep(POLL_INTERVAL_SECONDS)
+from appium_novawindows_poc.polling import wait_until_true
 
 
 class RadComboBox:
@@ -60,7 +46,7 @@ class RadComboBox:
                     print("RadComboBox: letzter Versuch öffnet per Mausklick.")
                     self._element().click()
 
-                _wait_until_true(
+                wait_until_true(
                     option_present,
                     timeout_seconds,
                     f"Dropdown-Eintrag {option_name!r} ist nach dem Öffnen "
@@ -77,7 +63,7 @@ class RadComboBox:
 
                 self._driver.execute_script("windows: select", option_items[0])
 
-                _wait_until_true(
+                wait_until_true(
                     option_selected,
                     timeout_seconds,
                     f"Option wurde über windows: select nicht auf {option_name!r} gesetzt.",

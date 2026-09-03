@@ -2,11 +2,23 @@
 
 
 class FakeCombo:
-    """Zustand einer ComboBox: aktuelle Auswahl und die auswählbaren Einträge."""
+    """Zustand einer ComboBox: Auswahl, Einträge und ob sie aufgeklappt ist.
 
-    def __init__(self, selected: str | None = None, options: tuple[str, ...] = ()) -> None:
+    Einträge sind nur im aufgeklappten Zustand auffindbar; `opens_on_expand`
+    schaltet das Aufklappen über windows: expand für Tests ab.
+    """
+
+    def __init__(
+        self,
+        selected: str | None = None,
+        options: tuple[str, ...] = (),
+        opens_on_expand: bool = True,
+    ) -> None:
         self.selected = selected
         self.options = list(options)
+        self.opens_on_expand = opens_on_expand
+        self.is_open = False
+        self.clicks = 0
 
 
 class FakeOption:
@@ -33,11 +45,18 @@ class FakeComboElement:
         )
 
     def find_elements(self, _by: str, xpath: str) -> list[FakeOption]:
+        if not self.combo.is_open:
+            return []
+
         return [
             FakeOption(self.combo, name)
             for name in self.combo.options
             if f"@Name='{name}'" in xpath
         ]
+
+    def click(self) -> None:
+        self.combo.clicks += 1
+        self.combo.is_open = True
 
 
 class FakeDialogElement:
@@ -74,13 +93,21 @@ class FakeEditDialog:
 
 
 class FakeDriver:
-    """Attrappe des Treibers; windows: select übernimmt den Eintrag in die ComboBox."""
+    """Attrappe des Treibers; expand klappt die ComboBox auf, select übernimmt den Eintrag.
 
-    def __init__(self) -> None:
+    Mit `select_takes_effect=False` bleibt die Auswahl wirkungslos.
+    """
+
+    def __init__(self, select_takes_effect: bool = True) -> None:
         self.scripts: list[str] = []
+        self._select_takes_effect = select_takes_effect
 
     def execute_script(self, script: str, *args) -> None:
         self.scripts.append(script)
-        if script == "windows: select":
+
+        if script == "windows: expand":
+            combo = args[0].combo
+            combo.is_open = combo.opens_on_expand
+        elif script == "windows: select" and self._select_takes_effect:
             option = args[0]
             option.combo.selected = option.name
